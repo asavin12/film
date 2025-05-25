@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Player với Phụ đề và Dịch tiếng Việt</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .video-container {
+      position: relative;
+      width: 95%;
+      margin: 0 auto;
+    }
+    #video-player {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    #subtitles {
+      position: absolute;
+      bottom: 15%;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: white;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      pointer-events: auto;
+      z-index: 2147483647;
+      display: block;
+      visibility: visible;
+      white-space: pre-wrap;
+      line-height: 1.2;
+      transform: translateZ(0);
+      contain: paint;
+    }
+    .subtitle {
+      cursor: pointer;
+      display: inline;
+      letter-spacing: -0.01em;
+      transition: color 0.2s;
+    }
+    .subtitle:hover {
+      color: orange;
+    }
+    .selected {
+      color: yellow;
+      font-weight: bold;
+    }
+    #error-message {
+      color: red;
+      display: none;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    #translation-popup {
+      display: none;
+      position: absolute;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      z-index: 2147483648;
+      max-width: 400px;
+      font-size: 0.9rem;
+      cursor: move;
+      user-select: none;
+    }
+    #translation-popup .close-btn {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+    .input-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 1rem;
+      z-index: 2147483646;
+    }
+    .input-box {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans">
+  <div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4 text-center">Video Player với Phụ đề và Dịch tiếng Việt</h1>
+    
+    <div id="error-message" class="mb-4"></div>
+    
+    <div class="video-container">
+      <video id="video-player" controls></video>
+      <div id="subtitles"></div>
+      <div id="input-overlay" class="input-overlay">
+        <div class="input-box">
+          <label class="block mb-2">Nhập URL Video hoặc Tải lên File:</label>
+          <input type="text" id="video-url" placeholder="Nhập URL video (ví dụ: https://example.com/video.mp4)" class="border p-2 w-full mb-2">
+          <input type="file" id="video-upload" accept="video/*" class="border p-2 w-full">
+        </div>
+        <div class="input-box">
+          <label class="block mb-2">Tải lên File SRT:</label>
+          <input type="file" id="subtitle-upload" accept=".srt" class="border p-2 w-full">
+        </div>
+      </div>
+      <div id="translation-popup">
+        <span class="close-btn" onclick="closePopup()">×</span>
+        <div id="popup-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('video-player');
+    const videoContainer = document.querySelector('.video-container');
+    const inputOverlay = document.getElementById('input-overlay');
+    const videoUrlInput = document.getElementById('video-url');
+    const videoUpload = document.getElementById('video-upload');
+    const subtitleUpload = document.getElementById('subtitle-upload');
+    const subtitlesDiv = document.getElementById('subtitles');
+    const translationPopup = document.getElementById('translation-popup');
+    const popupContent = document.getElementById('popup-content');
+    const errorMessage = document.getElementById('error-message');
+    let subtitles = [];
+    let currentSentence = '';
+    let isVideoLoaded = false;
+    let isSubtitlesLoaded = false;
+    let hasPlayed = false;
+    const debounceDelay = 100;
+
+    // API key Gemini (thay bằng key thực tế)
+    const apiKeys = [
+      'AIzaSyBGBardF0wcqPoHXwUUcRQuS5H3PI7fmCE', // Replace with your first Gemini API key
+      'AIzaSyDZ16xv4yuq39Epui20WXU7N1tQn5Ef5-8', // Replace with your second Gemini API key
+      // Add more keys as needed
+    ];
+    let currentApiKeyIndex = 0;
+
+    // Cập nhật phụ đề
+    function updateSubtitles() {
+      const isFullscreen = !!document.fullscreenElement;
+      const videoRect = video.getBoundingClientRect();
+      const videoHeight = videoRect.height;
+      const windowHeight = window.innerHeight;
+      const fontSizePx = isFullscreen ? (windowHeight * 0.06) : (videoHeight * 0.06);
+
+      // Cập nhật phụ đề
+      subtitlesDiv.style.position = 'absolute';
+      subtitlesDiv.style.bottom = '15%';
+      subtitlesDiv.style.left = '0';
+      subtitlesDiv.style.right = '0';
+      subtitlesDiv.style.width = `${videoRect.width}px`;
+      subtitlesDiv.style.zIndex = '2147483647';
+      subtitlesDiv.style.fontSize = `${fontSizePx}px`;
+      subtitlesDiv.style.textShadow = `${fontSizePx * 0.125}px ${fontSizePx * 0.125}px ${fontSizePx * 0.25}px rgba(0, 0, 0, 0.8)`;
+      subtitlesDiv.style.display = 'block';
+      subtitlesDiv.style.willChange = 'transform, opacity';
+
+      // Ép vẽ lại
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          subtitlesDiv.style.visibility = 'visible';
+          subtitlesDiv.style.willChange = 'auto';
+        }, 0);
+      });
+    }
+
+    // Xử lý thay đổi toàn màn hình
+    video.addEventListener('fullscreenchange', updateSubtitles);
+
+    // Điều chỉnh khi thay đổi kích thước
+    window.addEventListener('resize', updateSubtitles);
+
+    // Cập nhật ban đầu khi video tải
+    video.addEventListener('loadedmetadata', updateSubtitles);
+
+    // Ép cập nhật khi phát hoặc tiếp tục
+    video.addEventListener('play', updateSubtitles);
+    video.addEventListener('playing', updateSubtitles);
+
+    // Phân tích file SRT
+    function parseSRT(data) {
+      try {
+        const normalizedData = data.replace(/\r\n|\r|\n/g, '\n').trim();
+        const lines = normalizedData.split('\n\n').filter(line => line.trim());
+        if (!lines.length) {
+          throw new Error('File SRT trống hoặc không hợp lệ.');
+        }
+        const parsedSubtitles = [];
+        lines.forEach((block, index) => {
+          const blockLines = block.split('\n').filter(line => line.trim());
+          if (blockLines.length < 2) {
+            return;
+          }
+          const timeLine = blockLines.find(line => line.includes(' --> '));
+          if (!timeLine) {
+            return;
+          }
+          const timeIndex = blockLines.indexOf(timeLine);
+          const textLines = blockLines.slice(timeIndex + 1).map(line => line.trim()).filter(line => line);
+          if (!textLines.length) {
+            return;
+          }
+          const [start, end] = timeLine.split(' --> ').map(t => {
+            const [h, m, s] = t.replace(',', '.').split(':');
+            if (isNaN(h) || isNaN(m) || isNaN(s)) {
+              throw new Error(`Giá trị thời gian không hợp lệ ở khối ${index + 1}`);
+            }
+            return parseInt(h) * 3600 + parseInt(m) * 60 + parseFloat(s);
+          });
+          parsedSubtitles.push({ start, end, text: textLines });
+        });
+        if (!parsedSubtitles.length) {
+          throw new Error('Không phân tích được khối phụ đề hợp lệ.');
+        }
+        return parsedSubtitles;
+      } catch (error) {
+        errorMessage.style.display = 'block';
+        errorMessage.textContent = `Lỗi phân tích file SRT: ${error.message}`;
+        return [];
+      }
+    }
+
+    // Khởi tạo hiển thị phụ đề
+    function displaySubtitles() {
+      subtitlesDiv.innerHTML = subtitles.length ? '' : 'Chưa tải phụ đề. Vui lòng tải file SRT hợp lệ.';
+      errorMessage.style.display = 'none';
+      updateSubtitles();
+    }
+
+    // Kiểm tra video và phụ đề để phát
+    function tryPlayVideo() {
+      if (isVideoLoaded && isSubtitlesLoaded && !hasPlayed) {
+        inputOverlay.style.display = 'none';
+        video.play().then(() => {
+          hasPlayed = true;
+        }).catch(e => {
+          errorMessage.style.display = 'block';
+          errorMessage.textContent = `Lỗi phát video: ${e.message}`;
+          inputOverlay.style.display = 'flex';
+        });
+      }
+    }
+
+    // Tải video từ URL
+    videoUrlInput.addEventListener('input', () => {
+      const url = videoUrlInput.value.trim();
+      if (url) {
+        try {
+          video.src = url;
+          video.load();
+          isVideoLoaded = true;
+          errorMessage.style.display = 'none';
+          tryPlayVideo();
+        } catch (error) {
+          errorMessage.style.display = 'block';
+          errorMessage.textContent = `Lỗi tải video từ URL: ${error.message}`;
+          isVideoLoaded = false;
+        }
+      }
+    });
+
+    // Tải video từ file
+    videoUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        try {
+          const url = URL.createObjectURL(file);
+          video.src = url;
+          video.load();
+          isVideoLoaded = true;
+          errorMessage.style.display = 'none';
+          tryPlayVideo();
+        } catch (error) {
+          errorMessage.style.display = 'block';
+          errorMessage.textContent = `Lỗi tải file video: ${error.message}`;
+          isVideoLoaded = false;
+        }
+      }
+    });
+
+    // Tải và hiển thị phụ đề
+    subtitleUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        errorMessage.style.display = 'block';
+        errorMessage.textContent = 'Chưa chọn file SRT.';
+        return;
+      }
+      if (!file.name.toLowerCase().endsWith('.srt')) {
+        errorMessage.style.display = 'block';
+        errorMessage.textContent = 'Vui lòng tải file .srt hợp lệ.';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const text = event.target.result;
+          subtitles = parseSRT(text);
+          isSubtitlesLoaded = subtitles.length > 0;
+          displaySubtitles();
+          if (subtitles.length === 0) {
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = 'Không tìm thấy phụ đề hợp lệ trong file SRT.';
+          } else {
+            errorMessage.style.display = 'none';
+            tryPlayVideo();
+          }
+        } catch (error) {
+          errorMessage.style.display = 'block';
+          errorMessage.textContent = `Lỗi đọc file SRT: ${error.message}`;
+          isSubtitlesLoaded = false;
+        }
+      };
+      reader.onerror = () => {
+        errorMessage.style.display = 'block';
+        errorMessage.textContent = 'Lỗi đọc file SRT.';
+        isSubtitlesLoaded = false;
+      };
+      reader.readAsText(file, 'UTF-8');
+    });
+
+    // Hàm debounce
+    function debounce(func, delay) {
+      let timeoutId;
+      return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func(...args), delay);
+      };
+    }
+
+    // Cập nhật phụ đề theo thời gian video
+    video.addEventListener('timeupdate', debounce(() => {
+      if (video.paused) return;
+      console.log('timeupdate triggered', video.currentTime); // Log tạm thời
+      const currentTime = video.currentTime;
+      const currentSubtitle = subtitles.find(sub => currentTime >= sub.start && currentTime <= sub.end);
+      currentSentence = currentSubtitle ? currentSubtitle.text.join(' ') : '';
+      const newSubtitleText = currentSubtitle ? currentSubtitle.text.join('<br>') : '';
+      subtitlesDiv.innerHTML = newSubtitleText;
+      subtitlesDiv.offsetHeight; // Ép vẽ lại DOM
+      makeWordsSelectable();
+      updateSubtitles();
+    }, debounceDelay));
+
+    // Làm cho các từ trong phụ đề có thể chọn
+    function makeWordsSelectable() {
+      const text = subtitlesDiv.innerHTML;
+      if (text) {
+        const lines = text.split('<br>').map(line => {
+          const words = line.split(' ').map(word => `<span class="subtitle">${word}</span>`).join(' ');
+          return words;
+        });
+        subtitlesDiv.innerHTML = lines.join('<br>');
+      }
+    }
+
+    // Xử lý nhấp chuột vào từ
+    subtitlesDiv.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const target = e.target.closest('.subtitle');
+      if (!target) return;
+      document.querySelectorAll('.subtitle').forEach(w => w.classList.remove('selected'));
+      target.classList.add('selected');
+      video.pause();
+      translateWord(target.textContent, currentSentence);
+    });
+
+    // Đóng popup mà không phát video
+    function closePopup() {
+      translationPopup.style.display = 'none';
+    }
+
+    // Nhấp bên ngoài để đóng popup
+    document.addEventListener('click', (e) => {
+      if (!translationPopup.contains(e.target) && !e.target.closest('.subtitle')) {
+        closePopup();
+      }
+    });
+
+    // Làm popup có thể kéo thả
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+
+    translationPopup.addEventListener('mousedown', (e) => {
+      initialX = e.clientX - currentX;
+      initialY = e.clientY - currentY;
+      isDragging = true;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        e.preventDefault();
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+        translationPopup.style.left = `${currentX}px`;
+        translationPopup.style.top = `${currentY}px`;
+        translationPopup.style.transform = 'none';
+        localStorage.setItem('popupPosition', JSON.stringify({ top: currentY, left: currentX }));
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    // Khôi phục vị trí popup
+    function restorePopupPosition() {
+      const savedPosition = localStorage.getItem('popupPosition');
+      if (savedPosition) {
+        const { top, left } = JSON.parse(savedPosition);
+        translationPopup.style.top = `${top}px`;
+        translationPopup.style.left = `${left}px`;
+        translationPopup.style.transform = 'none';
+        currentX = left;
+        currentY = top;
+      } else {
+        translationPopup.style.top = '20%';
+        translationPopup.style.left = '50%';
+        translationPopup.style.transform = 'translateX(-50%)';
+        currentX = 0;
+        currentY = 0;
+      }
+    }
+
+    // Dịch từ bằng Gemini API với xoay key
+    async function translateWord(word, sentence) {
+      popupContent.innerHTML = 'Đang dịch...';
+      translationPopup.style.display = 'none';
+
+      const cleanedWord = word.replace(/[^a-zA-ZäöüÄÖÜß\s]/g, '').trim();
+
+      const prompt = `
+        Yêu cầu:
+        **Đầu tiên phải loại bỏ các định dạng không thuộc ngôn ngữ của con người của "${cleanedWord}" và "${sentence}" (loại bỏ các thẻ HTML, các ký tự đặc biệt không thuộc tiếng Đức).
+        **Tiếp theo phân tích từ/cụm từ "${cleanedWord}" trong câu "${sentence}" và trả về bản dịch sang tiếng Việt.
+
+          Trả về duy nhất cấu trúc JSON theo mẫu sau:
+            {
+              "tugoc": "Từ gốc (Động từ: dạng nguyên thể, kèm tiền tố tách nếu có; Danh từ: dạng số ít kèm mạo từ; giữ nguyên nếu là cụm từ/câu)",
+              "nghia": "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ... (kết hợp loại từ và các nghĩa Tiếng Việt, ưu tiên nhiều nghĩa nếu có)"
+            }
+
+          A. Xác định loại từ của "${cleanedWord}":
+             1. Câu: Nếu "${cleanedWord}" có chủ ngữ, vị ngữ, và dấu câu cuối (., !, ?), hoặc cấu trúc ngữ pháp đầy đủ.
+                - tugoc: "${cleanedWord}" (không thêm bớt)
+                - nghia: "Câu: <Nghĩa Tiếng Việt của câu>"
+             2. Cụm từ: Nếu "${cleanedWord}" có hai từ trở lên nhưng không phải câu hoàn chỉnh.
+                - tugoc: "${cleanedWord}" (không thêm bớt)
+                - nghia: "Cụm từ: <Nghĩa Tiếng Việt chính xác>"
+             3. Từ đơn: Nếu "${cleanedWord}" là một từ.
+                - Động từ tách: Kiểm tra "${sentence}" để tìm tiền tố tách (ab|an|auf|aus|bei|ein|fest|her|hin|los|mit|nach|statt|teil|vor|weg|zu|zurück|zusammen) ở cuối câu hoặc trước liên từ (und/oder/aber). Chuyển về nguyên thể và ghép tiền tố (ví dụ: "mach" + "aus" → "ausmachen").
+                - Động từ phản thân: Tìm "sich|mich|dich|eur|uns" (ví dụ: "sich ändern").
+                - Động từ kèm giới từ: Xác định giới từ (ví dụ: "teilnehmen an").
+                - Danh từ: Nếu viết hoa, thêm mạo từ (der|die|das, tham khảo duden.de).
+                - Tính từ/Trạng từ/Đại từ/Giới từ/Liên từ/Thán từ: Dùng dạng gốc.
+                - tugoc: Dạng đúng theo loại từ (ví dụ: "ausmachen", "der Tisch").
+                - nghia: "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ..."
+
+          Lưu ý:
+            - Xác định chính xác loại từ, không cắt xén "${cleanedWord}".
+            - Chỉ đưa ra nghĩa riêng cho "${cleanedWord}", không bao gồm nghĩa của từ khác trong "${sentence}".
+            - Ưu tiên ngữ cảnh "${sentence}".
+            - Tham khảo dict.cc/leo.org/duden.de.
+            - Trả về JSON thuần hợp lệ trong \`\`\`json\n...\n\`\`\`.
+      `;
+
+      async function tryTranslateWithKey(keyIndex) {
+        const apiKey = apiKeys[keyIndex];
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: prompt
+                }]
+              }]
+            })
+          });
+
+          if (!response.ok) {
+            if (response.status === 429 && keyIndex < apiKeys.length - 1) {
+              return tryTranslateWithKey(keyIndex + 1);
+            }
+            throw new Error(`Lỗi HTTP! Trạng thái: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const content = data.candidates[0].content.parts[0].text;
+          const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
+          if (!jsonMatch) {
+            throw new Error('Phản hồi JSON không hợp lệ từ Gemini API');
+          }
+          const jsonData = JSON.parse(jsonMatch[1]);
+
+          popupContent.innerHTML = `
+            <p><strong>Từ gốc:</strong> ${jsonData.tugoc}</p>
+            <p><strong>Nghĩa:</strong> ${jsonData.nghia}</p>
+          `;
+          translationPopup.style.display = 'block';
+          restorePopupPosition();
+        } catch (error) {
+          if (keyIndex < apiKeys.length - 1) {
+            return tryTranslateWithKey(keyIndex + 1);
+          } else {
+            popupContent.innerHTML = `<p>Lỗi dịch "${cleanedWord}". Tất cả API key đều thất bại.</p>`;
+            translationPopup.style.display = 'block';
+            restorePopupPosition();
+          }
+        }
+      }
+
+      if (apiKeys.length === 0) {
+        popupContent.innerHTML = '<p>Chưa cung cấp API key. Vui lòng thêm key Gemini vào mã.</p>';
+        translationPopup.style.display = 'block';
+        restorePopupPosition();
+        return;
+      }
+
+      tryTranslateWithKey(currentApiKeyIndex);
+    }
+  </script>
+</body>
+</html>
