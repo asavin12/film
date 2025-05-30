@@ -239,6 +239,20 @@
     .loop-marker:nth-child(even) {
       bottom: -25px;
     }
+
+    .custom-controls input[type="number"] {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 2px 4px;
+      font-size: 12px;
+      width: 60px;
+      text-align: center;
+    }
+    .custom-controls input[type="number"]:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+    }
   </style>
 </head>
 <body class="bg-gray-100 font-sans">
@@ -254,12 +268,16 @@
         <button id="add-loop" title="Thêm đoạn lặp vào danh sách">Thêm</button>
         <label class="toggle-switch">
           <input type="checkbox" id="toggle-loop">
-          <span class="slider" title="Bật/tắt chức năng lặp đoạn">Lặp: <span class="toggle-text">TẮT</span></span>
+          <span class="slider" title="Bật/tắt chức năng lặp đoạn">Lặp: <span class="toggle-text">Off</span></span>
         </label>
         <label class="toggle-switch">
           <input type="checkbox" id="toggle-subtitles" checked>
-          <span class="slider" title="Bật/tắt hiển thị phụ đề">Phụ đề: <span class="toggle-text">BẬT</span></span>
+          <span class="slider" title="Bật/tắt hiển thị phụ đề">Sub: <span class="toggle-text">On</span></span>
         </label>
+        <!-- Thêm nút lùi, tiến và ô nhập số giây -->
+        <button id="rewind-btn" title="Tua lùi số giây đã chọn">Lùi</button>
+        <input type="number" id="seek-seconds" min="1" max="60" value="5" class="border p-1 w-16 text-sm" title="Nhập số giây để tua (1-60)">
+        <button id="forward-btn" title="Tua tiến số giây đã chọn">Tiến</button>
         <button id="clear-data" title="Xóa video, phụ đề và danh sách đoạn lặp">Xóa</button>
       </div>
       <div id="loop-markers"></div>
@@ -281,8 +299,8 @@
       </div>
     </div>
       <div class="subtitle-box mt-2 bg-white p-4 rounded-lg shadow-md w-full mx-auto">
-        <label class="block mb-2 font-bold text-gray-700">Phụ đề (bôi đen để dịch):</label>
-        <textarea id="subtitle-display" class="w-full h-24 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-center" readonly placeholder="Phụ đề sẽ được hiển thị tại đây..."></textarea>
+        <label class="block mb-2 font-bold text-gray-700">Phụ đề (bôi đen để tự động dịch):</label>
+        <textarea id="subtitle-display" class="w-full h-18 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-center" readonly placeholder="Phụ đề sẽ được hiển thị tại đây..."></textarea>
       </div>
     <div class="loop-list-container">
       <h4 class="font-bold">Danh sách đoạn lặp</h4>
@@ -416,6 +434,52 @@
       }
     }
 
+      // Thêm các biến và xử lý nút lùi/tiến
+      const rewindBtn = document.getElementById('rewind-btn');
+      const forwardBtn = document.getElementById('forward-btn');
+      const seekSecondsInput = document.getElementById('seek-seconds');
+
+      // Xử lý tua lùi
+      rewindBtn.addEventListener('click', () => {
+        let seconds = parseFloat(seekSecondsInput.value) || 5; // Mặc định 5 giây
+        if (isNaN(seconds) || seconds < 1) {
+          seconds = 5;
+          seekSecondsInput.value = 5;
+          errorMessage.style.display = 'block';
+          errorMessage.textContent = 'Số giây không hợp lệ, đặt lại thành 5 giây.';
+          setTimeout(() => errorMessage.style.display = 'none', 3000);
+        }
+        const newTime = Math.max(0, video.currentTime - seconds); // Không tua lùi quá 0
+        video.currentTime = newTime;
+      });
+
+      // Xử lý tua tiến
+      forwardBtn.addEventListener('click', () => {
+        let seconds = parseFloat(seekSecondsInput.value) || 5; // Mặc định 5 giây
+        if (isNaN(seconds) || seconds < 1) {
+          seconds = 5;
+          seekSecondsInput.value = 5;
+          errorMessage.style.display = 'block';
+          errorMessage.textContent = 'Số giây không hợp lệ, đặt lại thành 5 giây.';
+          setTimeout(() => errorMessage.style.display = 'none', 3000);
+        }
+        const newTime = Math.min(video.duration || Infinity, video.currentTime + seconds); // Không tua quá thời lượng video
+        video.currentTime = newTime;
+      });
+
+      // Giới hạn giá trị ô nhập
+      seekSecondsInput.addEventListener('input', () => {
+        let value = parseFloat(seekSecondsInput.value);
+        if (isNaN(value) || value < 1) {
+          seekSecondsInput.value = 5;
+        } else if (value > 60) {
+          seekSecondsInput.value = 60;
+          errorMessage.style.display = 'block';
+          errorMessage.textContent = 'Số giây tối đa là 60.';
+          setTimeout(() => errorMessage.style.display = 'none', 3000);
+        }
+      });
+
     // Parse SRT file content
     function parseSRT(data) {
       try {
@@ -529,6 +593,13 @@
       localStorage.setItem('loopList', JSON.stringify(loops));
     }
 
+    // Loại bỏ các thẻ HTML, giữ lại nội dung văn bản
+    function stripHTML(text) {
+      const div = document.createElement('div');
+      div.innerHTML = text;
+      return div.textContent || div.innerText || '';
+    }
+    
     // Update subtitles
     function updateSubtitles() {
       if (!subtitleEnabled) {
@@ -555,7 +626,8 @@
 
       const currentTime = video.currentTime;
       const currentSubtitle = subtitles.find(sub => sub.startTime <= currentTime && currentTime <= sub.endTime);
-      subtitleDisplay.value = currentSubtitle ? currentSubtitle.contentLines.join('\n') : '';
+      // Loại bỏ thẻ HTML trước khi hiển thị trong textarea
+      subtitleDisplay.value = currentSubtitle ? stripHTML(currentSubtitle.contentLines.join('\n')) : '';
 
       requestAnimationFrame(() => {
         setTimeout(() => {
