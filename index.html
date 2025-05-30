@@ -25,7 +25,6 @@
       color: white;
       font-weight: bold;
       text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-      padding: 10px;
       pointer-events: auto;
       z-index: 2147483647;
       display: block;
@@ -37,11 +36,10 @@
     }
     .subtitle {
       cursor: pointer;
-      display: inline;
-      margin: 0 0.05em;
-      padding: 2px 3px;
+      display: inline-block;
       letter-spacing: -0.02em;
-      transition: color 0.2s;
+      /* Chỉ giữ background, loại bỏ outline */
+      background: rgb(0, 0, 0); /* Nền tối nhẹ để tăng độ tương phản */
     }
     .subtitle:hover {
       color: orange;
