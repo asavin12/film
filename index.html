@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🛸Video Player với Phụ đề, Dịch và Lặp đoạn🛸</title>
+  <title>Trình phát video với phụ đề, dịch và lặp đoạn</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     .video-container {
@@ -243,37 +243,35 @@
 </head>
 <body class="bg-gray-100 font-sans">
   <div class="container mx-auto p-4">
-    
     <div id="error-message" class="mb-4"></div>
-    
     <div class="video-container">
       <video id="video-player" controls></video>
       <div class="custom-controls">
-        <button id="set-loop-start" title="Đặt thời gian bắt đầu lặp">Bắt đầu</button>
+        <button id="set-loop-start" title="Đặt thời điểm bắt đầu đoạn lặp">Bắt đầu</button>
         <span id="loop-start-display">00:00</span>
-        <button id="set-loop-end" title="Đặt thời gian kết thúc lặp">Kết thúc</button>
+        <button id="set-loop-end" title="Đặt thời điểm kết thúc đoạn lặp">Kết thúc</button>
         <span id="loop-end-display">00:00</span>
-        <button id="add-loop" title="Thêm đoạn lặp">Thêm</button>
+        <button id="add-loop" title="Thêm đoạn lặp vào danh sách">Thêm</button>
         <label class="toggle-switch">
           <input type="checkbox" id="toggle-loop">
-          <span class="slider" title="Bật/Tắt lặp đoạn">Lặp: <span class="toggle-text">OFF</span></span>
+          <span class="slider" title="Bật/tắt chức năng lặp đoạn">Lặp: <span class="toggle-text">TẮT</span></span>
         </label>
         <label class="toggle-switch">
           <input type="checkbox" id="toggle-subtitles" checked>
-          <span class="slider" title="Bật/Tắt phụ đề">Phụ đề: <span class="toggle-text">ON</span></span>
+          <span class="slider" title="Bật/tắt hiển thị phụ đề">Phụ đề: <span class="toggle-text">BẬT</span></span>
         </label>
-        <button id="clear-data" title="Xóa video, phụ đề, đoạn lặp">Xóa</button>
+        <button id="clear-data" title="Xóa video, phụ đề và danh sách đoạn lặp">Xóa</button>
       </div>
       <div id="loop-markers"></div>
       <div id="subtitles"></div>
       <div id="input-overlay" class="input-overlay">
         <div class="input-box">
-          <label class="block mb-2">Nhập URL Video hoặc Tải lên File:</label>
+          <label class="block mb-2 font-bold text-gray-700">Nhập URL video hoặc tải file video:</label>
           <input type="text" id="video-url" placeholder="Nhập URL video (ví dụ: https://example.com/video.mp4)" class="border p-2 w-full mb-2">
           <input type="file" id="video-upload" accept="video/*" class="border p-2 w-full">
         </div>
         <div class="input-box">
-          <label class="block mb-2">Tải lên File SRT:</label>
+          <label class="block mb-2 font-bold text-gray-700">Tải file phụ đề (.srt):</label>
           <input type="file" id="subtitle-upload" accept=".srt" class="border p-2 w-full">
         </div>
       </div>
@@ -282,7 +280,10 @@
         <div id="popup-content"></div>
       </div>
     </div>
-
+      <div class="subtitle-box mt-2 bg-white p-4 rounded-lg shadow-md w-full mx-auto">
+        <label class="block mb-2 font-bold text-gray-700">Phụ đề (bôi đen để dịch):</label>
+        <textarea id="subtitle-display" class="w-full h-24 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-center" readonly placeholder="Phụ đề sẽ được hiển thị tại đây..."></textarea>
+      </div>
     <div class="loop-list-container">
       <h4 class="font-bold">Danh sách đoạn lặp</h4>
       <ul id="loop-list"></ul>
@@ -297,6 +298,7 @@
     const videoUpload = document.getElementById('video-upload');
     const subtitleUpload = document.getElementById('subtitle-upload');
     const subtitlesDiv = document.getElementById('subtitles');
+    const subtitleDisplay = document.getElementById('subtitle-display');
     const translationPopup = document.getElementById('translation-popup');
     const popupContent = document.getElementById('popup-content');
     const errorMessage = document.getElementById('error-message');
@@ -324,9 +326,8 @@
 
     // API keys
     const apiKeys = [
-      'AIzaSyBGBardF0wcqPoHXwUUcRQuS5H3PI7fmCE', // Replace with your first Gemini API key
-      'AIzaSyDZ16xv4yuq39Epui20WXU7N1tQn5Ef5-8', // Replace with your second Gemini API key
-      // Add more keys as needed
+      'AIzaSyDtnZx4SDYq44Zf61YOJpgtxZT8eOwho9I', // Thay bằng key Gemini API hợp lệ
+      'AIzaSyC9XqHlD3FLn1bffhbKBXRKwHh6Xdbriy4', // Thay bằng key Gemini API hợp lệ
     ];
     let currentApiKeyIndex = 0;
 
@@ -346,104 +347,96 @@
       const loopEnabled = localStorage.getItem('loopEnabled');
       const subtitleEnabledStored = localStorage.getItem('subtitleEnabled');
 
-      // Load video
       if (videoUrl) {
         try {
           video.src = videoUrl;
           video.load();
           isVideoLoaded = true;
-          console.log('Loaded video from URL:', videoUrl);
+          console.log('Đã tải video từ URL:', videoUrl);
+          video.addEventListener('loadedmetadata', tryPlayVideo, { once: true });
         } catch (error) {
           errorMessage.style.display = 'block';
-          errorMessage.textContent = `Lỗi tải video từ localStorage: ${error.message}`;
-          console.error('Video URL load error:', error);
+          errorMessage.textContent = `Không thể tải video từ bộ nhớ: ${error.message}`;
+          console.error('Lỗi tải video từ URL:', error);
+          isVideoLoaded = false;
         }
       } else if (videoFileName) {
         errorMessage.style.display = 'block';
         errorMessage.textContent = `Vui lòng tải lại file video: ${videoFileName}`;
-        console.log('Local video file detected, prompting reload:', videoFileName);
+        console.log('Phát hiện file video cục bộ, yêu cầu tải lại:', videoFileName);
         isVideoLoaded = false;
       }
 
-      // Load subtitles
       if (srtContent) {
         try {
           subtitles = parseSRT(srtContent);
           isSubtitlesLoaded = subtitles.length > 0;
           displaySubtitles();
-          console.log('Loaded subtitles from localStorage:', subtitles.length, 'blocks');
+          console.log('Đã tải phụ đề từ bộ nhớ:', subtitles.length, 'khối');
           if (!isSubtitlesLoaded) {
             errorMessage.style.display = 'block';
-            errorMessage.textContent = 'Không tìm thấy phụ đề hợp lệ trong dữ liệu lưu trữ. Tải lại file SRT.';
-            console.warn('No valid subtitles parsed from localStorage.');
+            errorMessage.textContent = 'Không tìm thấy phụ đề hợp lệ trong bộ nhớ. Vui lòng tải lại file SRT.';
+            console.warn('Không phân tích được phụ đề hợp lệ từ bộ nhớ.');
+          } else {
+            tryPlayVideo();
           }
         } catch (error) {
           errorMessage.style.display = 'block';
-          errorMessage.textContent = `Lỗi khôi phục phụ đề: ${error.message}. Tải lại file SRT.`;
-          console.error('Subtitle load error:', error);
+          errorMessage.textContent = `Lỗi khi khôi phục phụ đề: ${error.message}. Vui lòng tải lại file SRT.`;
+          console.error('Lỗi tải phụ đề:', error);
           isSubtitlesLoaded = false;
         }
       }
 
-      // Load loop list
       if (loopList) {
         try {
           loops = JSON.parse(loopList);
           updateLoopList();
-          console.log('Loaded loop list:', loops);
+          console.log('Đã tải danh sách đoạn lặp:', loops);
         } catch (error) {
           errorMessage.style.display = 'block';
-          errorMessage.textContent = `Lỗi tải danh sách lặp: ${error.message}`;
-          console.error('Loop list load error:', error);
+          errorMessage.textContent = `Không thể tải danh sách đoạn lặp: ${error.message}`;
+          console.error('Lỗi tải danh sách đoạn lặp:', error);
         }
       }
 
-      // Load loop toggle
       isLooping = loopEnabled !== null ? JSON.parse(loopEnabled) : false;
       toggleLoopElement.checked = isLooping;
-      toggleLoopElement.nextElementSibling.querySelector('.toggle-text').textContent = isLooping ? 'ON' : 'OFF';
-      console.log('Loop toggle state:', isLooping);
+      toggleLoopElement.nextElementSibling.querySelector('.toggle-text').textContent = isLooping ? 'BẬT' : 'TẮT';
+      console.log('Trạng thái lặp:', isLooping);
 
-      // Load subtitle toggle
       subtitleEnabled = subtitleEnabledStored !== null ? JSON.parse(subtitleEnabledStored) : true;
       toggleSubtitlesElement.checked = subtitleEnabled;
-      toggleSubtitlesElement.nextElementSibling.querySelector('.toggle-text').textContent = subtitleEnabled ? 'ON' : 'OFF';
+      toggleSubtitlesElement.nextElementSibling.querySelector('.toggle-text').textContent = subtitleEnabled ? 'BẬT' : 'TẮT';
       subtitlesDiv.style.display = subtitleEnabled ? 'block' : 'none';
-      console.log('Subtitle toggle state:', subtitleEnabled);
+      console.log('Trạng thái phụ đề:', subtitleEnabled);
 
-      // Update subtitles display
       if (isSubtitlesLoaded && subtitleEnabled) {
         updateSubtitles();
       }
-
-      tryPlayVideo();
     }
 
     // Parse SRT file content
     function parseSRT(data) {
       try {
-        // Loại bỏ BOM và chuẩn hóa dòng
         let normalizedData = data.replace(/\uFEFF/g, '').replace(/\r\n|\r|\n/g, '\n').trim();
-        // Tách block, bỏ block trống
         const blocks = normalizedData.split(/\n\n+/).filter(block => block.trim());
         if (!blocks.length) {
-          throw new Error('File SRT trống hoặc không chứa block hợp lệ.');
+          throw new Error('File SRT trống hoặc không chứa khối hợp lệ.');
         }
         const parsedSubtitles = [];
         blocks.forEach((block, index) => {
           try {
             const lines = block.split('\n').filter(line => line.trim());
             if (lines.length < 2) {
-              console.warn(`Block ${index + 1} bị bỏ qua: Không đủ dòng.`);
+              console.warn(`Khối ${index + 1} bị bỏ qua: Không đủ dòng.`);
               return;
             }
-            // Tìm dòng thời gian
             let timeLineIndex = lines.findIndex(line => line.includes(' --> '));
             if (timeLineIndex === -1) {
-              console.warn(`Block ${index + 1} bị bỏ qua: Không tìm thấy dòng thời gian.`);
+              console.warn(`Khối ${index + 1} bị bỏ qua: Không tìm thấy dòng thời gian.`);
               return;
             }
-            // Bỏ qua số thứ tự (nếu có)
             if (timeLineIndex > 0 && /^\d+$/.test(lines[0])) {
               lines.splice(0, 1);
               timeLineIndex--;
@@ -451,10 +444,9 @@
             const timeLine = lines[timeLineIndex];
             const contentLines = lines.slice(timeLineIndex + 1).filter(line => line.trim());
             if (!contentLines.length) {
-              console.warn(`Block ${index + 1} bị bỏ qua: Không có nội dung phụ đề.`);
+              console.warn(`Khối ${index + 1} bị bỏ qua: Không có nội dung phụ đề.`);
               return;
             }
-            // Phân tích thời gian
             const [start, end] = timeLine.split(' --> ').map(t => {
               const timeStr = t.replace(',', '.').trim();
               const [h, m, s] = timeStr.split(':');
@@ -464,23 +456,23 @@
               return parseInt(h) * 3600 + parseInt(m) * 60 + parseFloat(s);
             });
             if (start >= end) {
-              console.warn(`Block ${index + 1} bị bỏ qua: Thời gian bắt đầu (${start}) >= kết thúc (${end}).`);
+              console.warn(`Khối ${index + 1} bị bỏ qua: Thời gian bắt đầu (${start}) >= kết thúc (${end}).`);
               return;
             }
             parsedSubtitles.push({ startTime: start, endTime: end, contentLines });
           } catch (blockError) {
-            console.error(`Lỗi ở block ${index + 1}: ${blockError.message}`);
+            console.error(`Lỗi ở khối ${index + 1}: ${blockError.message}`);
           }
         });
         if (!parsedSubtitles.length) {
-          throw new Error('Không tìm thấy block phụ đề hợp lệ nào trong file.');
+          throw new Error('Không tìm thấy khối phụ đề hợp lệ nào trong file.');
         }
-        console.log(`Parsed ${parsedSubtitles.length} subtitle blocks successfully.`);
+        console.log(`Đã phân tích thành công ${parsedSubtitles.length} khối phụ đề.`);
         return parsedSubtitles;
       } catch (error) {
         errorMessage.style.display = 'block';
-        errorMessage.textContent = `Lỗi phân tích file SRT: ${error.message}. Vui lòng kiểm tra định dạng SRT và đảm bảo mã hóa UTF-8.`;
-        console.error('SRT parsing error:', error);
+        errorMessage.textContent = `Lỗi phân tích file SRT: ${error.message}. Vui lòng kiểm tra định dạng SRT và mã hóa UTF-8.`;
+        console.error('Lỗi phân tích SRT:', error);
         return [];
       }
     }
@@ -537,102 +529,11 @@
       localStorage.setItem('loopList', JSON.stringify(loops));
     }
 
-    // Set loop start
-    setLoopStartElement.addEventListener('click', () => {
-      loopStart = video.currentTime;
-      loopStartElement.textContent = formatTime(loopStart);
-    });
-
-    // Set loop end
-    setLoopEndElement.addEventListener('click', () => {
-      loopEnd = video.currentTime;
-      loopEndElement.textContent = formatTime(loopEnd);
-    });
-
-    // Add loop
-    addLoopElement.addEventListener('click', () => {
-      if (loopStart >= loopEnd || loopStart < 0 || loopEnd > video.duration) {
-        errorMessage.style.display = 'block';
-        errorMessage.textContent = 'Thời gian lặp không hợp lệ. Đảm bảo Bắt đầu < Kết thúc và trong phạm vi video.';
-        return;
-      }
-      loops.push({ start: loopStart, end: loopEnd });
-      updateLoopList();
-      loopStart = 0;
-      loopEnd = 0;
-      loopStartElement.textContent = '00:00';
-      loopEndElement.textContent = '00:00';
-      errorMessage.style.display = 'none';
-    });
-
-    // Toggle loop
-    toggleLoopElement.addEventListener('change', () => {
-      isLooping = toggleLoopElement.checked;
-      toggleLoopElement.nextElementSibling.querySelector('.toggle-text').textContent = isLooping ? 'ON' : 'OFF';
-      localStorage.setItem('loopEnabled', isLooping);
-      if (!isLooping) {
-        loopStart = 0;
-        loopEnd = video.duration || 0;
-        loopStartElement.textContent = '00:00';
-        loopEndElement.textContent = formatTime(loopEnd);
-      }
-      console.log('Loop toggle changed:', isLooping);
-    });
-
-    // Toggle subtitles
-    toggleSubtitlesElement.addEventListener('change', () => {
-      subtitleEnabled = toggleSubtitlesElement.checked;
-      subtitlesDiv.style.display = subtitleEnabled ? 'block' : 'none';
-      toggleSubtitlesElement.nextElementSibling.querySelector('.toggle-text').textContent = subtitleEnabled ? 'ON' : 'OFF';
-      localStorage.setItem('subtitleEnabled', subtitleEnabled);
-      if (subtitleEnabled) updateSubtitles();
-      console.log('Subtitle toggle changed:', subtitleEnabled);
-    });
-
-    // Clear data
-    clearDataElement.addEventListener('click', () => {
-      localStorage.removeItem('videoUrl');
-      localStorage.removeItem('videoFileName');
-      localStorage.removeItem('subtitleContent');
-      localStorage.removeItem('loopList');
-      localStorage.removeItem('loopEnabled');
-      localStorage.removeItem('subtitleEnabled');
-      video.src = '';
-      video.load();
-      subtitles = [];
-      loops = [];
-      isVideoLoaded = false;
-      isSubtitlesLoaded = false;
-      hasPlayed = false;
-      isLooping = false;
-      subtitleEnabled = true;
-      inputOverlay.style.display = 'flex';
-      subtitlesDiv.innerHTML = '';
-      subtitlesDiv.style.display = 'none';
-      loopListElement.innerHTML = '';
-      loopMarkersElement.innerHTML = '';
-      loopStartElement.textContent = '00:00';
-      loopEndElement.textContent = '00:00';
-      toggleLoopElement.checked = false;
-      toggleLoopElement.nextElementSibling.querySelector('.toggle-text').textContent = 'OFF';
-      toggleSubtitlesElement.checked = true;
-      toggleSubtitlesElement.nextElementSibling.querySelector('.toggle-text').textContent = 'ON';
-      errorMessage.style.display = 'none';
-      console.log('Cleared all data and reset state.');
-    });
-
-    // Handle looping
-    function handleLooping() {
-      if (isLooping && video.currentTime >= loopEnd) {
-        video.currentTime = loopStart;
-        video.play();
-      }
-    }
-
     // Update subtitles
     function updateSubtitles() {
       if (!subtitleEnabled) {
         subtitlesDiv.style.display = 'none';
+        subtitleDisplay.value = '';
         return;
       }
       const isFullscreen = !!document.fullscreenElement;
@@ -652,6 +553,10 @@
       subtitlesDiv.style.display = 'block';
       subtitlesDiv.style.willChange = 'transform, opacity';
 
+      const currentTime = video.currentTime;
+      const currentSubtitle = subtitles.find(sub => sub.startTime <= currentTime && currentTime <= sub.endTime);
+      subtitleDisplay.value = currentSubtitle ? currentSubtitle.contentLines.join('\n') : '';
+
       requestAnimationFrame(() => {
         setTimeout(() => {
           subtitlesDiv.style.visibility = 'visible';
@@ -660,46 +565,38 @@
       });
     }
 
-    // Handle fullscreen change
-    video.addEventListener('fullscreenchange', updateSubtitles);
-
-    // Adjust on resize
-    window.addEventListener('resize', updateSubtitles);
-
-    // Initial update on video load
-    video.addEventListener('loadedmetadata', () => {
-      updateSubtitles();
-      loopEnd = video.duration;
-      loopEndElement.textContent = formatTime(loopEnd);
-    });
-
-    // Handle play or playing
-    video.addEventListener('play', updateSubtitles);
-    video.addEventListener('playing', updateSubtitles);
-
     // Initialize subtitle display
     function displaySubtitles() {
       subtitlesDiv.innerHTML = subtitles.length ? '' : 'Chưa tải phụ đề. Vui lòng tải file SRT hợp lệ.';
+      subtitleDisplay.value = subtitles.length ? '' : 'Chưa tải phụ đề. Vui lòng tải file SRT hợp lệ.';
       errorMessage.style.display = 'none';
       updateSubtitles();
     }
 
     // Try to play video
     function tryPlayVideo() {
-      if (isVideoLoaded && isSubtitlesLoaded && !hasPlayed) {
+      if (isVideoLoaded && !hasPlayed) {
+        video.muted = true; // Tạm thời tắt âm thanh để vượt qua hạn chế tự động phát
         inputOverlay.style.display = 'none';
         video.play().then(() => {
           hasPlayed = true;
+          video.muted = false; // Bật lại âm thanh sau khi phát thành công
+          console.log('Video đã bắt đầu phát.');
+          if (isSubtitlesLoaded && subtitleEnabled) {
+            updateSubtitles();
+          }
         }).catch(e => {
+          video.muted = false;
           errorMessage.style.display = 'block';
-          errorMessage.textContent = `Lỗi phát video: ${e.message}`;
+          errorMessage.textContent = `Không thể phát video: ${e.message}. Vui lòng nhấn phát thủ công.`;
           inputOverlay.style.display = 'flex';
+          console.error('Lỗi phát video:', e);
         });
       }
     }
 
     // Load video from URL
-    videoUrlInput.addEventListener('input', () => {
+    videoUrlInput.addEventListener('change', () => {
       const url = videoUrlInput.value.trim();
       if (url) {
         try {
@@ -709,12 +606,12 @@
           localStorage.setItem('videoUrl', url);
           localStorage.removeItem('videoFileName');
           errorMessage.style.display = 'none';
-          console.log('Loaded video from URL:', url);
-          tryPlayVideo();
+          console.log('Đã tải video từ URL:', url);
+          video.addEventListener('loadedmetadata', tryPlayVideo, { once: true });
         } catch (error) {
           errorMessage.style.display = 'block';
-          errorMessage.textContent = `Lỗi tải video từ URL: ${error.message}`;
-          console.error('Video URL load error:', error);
+          errorMessage.textContent = `Không thể tải video từ URL: ${error.message}`;
+          console.error('Lỗi tải video từ URL:', error);
           isVideoLoaded = false;
           localStorage.removeItem('videoUrl');
         }
@@ -733,12 +630,12 @@
           localStorage.setItem('videoFileName', videoFile.name);
           localStorage.removeItem('videoUrl');
           errorMessage.style.display = 'none';
-          console.log('Loaded local video file:', videoFile.name);
-          tryPlayVideo();
+          console.log('Đã tải file video cục bộ:', videoFile.name);
+          video.addEventListener('loadedmetadata', tryPlayVideo, { once: true });
         } catch (error) {
           errorMessage.style.display = 'block';
-          errorMessage.textContent = `Lỗi tải file video: ${error.message}`;
-          console.error('Video file load error:', error);
+          errorMessage.textContent = `Không thể tải file video: ${error.message}`;
+          console.error('Lỗi tải file video:', error);
           isVideoLoaded = false;
           localStorage.removeItem('videoFileName');
         }
@@ -750,48 +647,69 @@
       const subtitleFile = e.target.files[0];
       if (!subtitleFile) {
         errorMessage.style.display = 'block';
-        errorMessage.textContent = 'Chưa chọn file SRT.';
-        console.error('No SRT file selected.');
+        errorMessage.textContent = 'Vui lòng chọn file SRT.';
+        console.error('Chưa chọn file SRT.');
         return;
       }
       if (!subtitleFile.name.toLowerCase().endsWith('.srt')) {
         errorMessage.style.display = 'block';
         errorMessage.textContent = 'Vui lòng tải file .srt hợp lệ.';
-        console.error('Invalid file extension:', subtitleFile.name);
+        console.error('Định dạng file không hợp lệ:', subtitleFile.name);
         return;
       }
       const fileReader = new FileReader();
       fileReader.onload = (event) => {
         try {
           const subtitleText = event.target.result;
-          console.log('SRT file loaded, size:', subtitleText.length, 'characters');
+          console.log('Đã tải file SRT, kích thước:', subtitleText.length, 'ký tự');
           subtitles = parseSRT(subtitleText);
           isSubtitlesLoaded = subtitles.length > 0;
           localStorage.setItem('subtitleContent', subtitleText);
           displaySubtitles();
           if (subtitles.length === 0) {
             errorMessage.style.display = 'block';
-            errorMessage.textContent = 'Không tìm thấy phụ đề hợp lệ trong file SRT. Kiểm tra định dạng và mã hóa UTF-8.';
-            console.warn('No valid subtitles parsed.');
+            errorMessage.textContent = 'Không tìm thấy phụ đề hợp lệ trong file SRT. Vui lòng kiểm tra định dạng và mã hóa UTF-8.';
+            console.warn('Không phân tích được phụ đề hợp lệ.');
           } else {
             errorMessage.style.display = 'none';
-            console.log('Subtitles loaded successfully:', subtitles);
+            console.log('Đã tải phụ đề thành công:', subtitles);
             tryPlayVideo();
           }
         } catch (error) {
           errorMessage.style.display = 'block';
-          errorMessage.textContent = `Lỗi đọc file SRT: ${error.message}`;
-          console.error('SRT reading error:', error);
+          errorMessage.textContent = `Lỗi khi đọc file SRT: ${error.message}`;
+          console.error('Lỗi đọc file SRT:', error);
           isSubtitlesLoaded = false;
         }
       };
       fileReader.onerror = () => {
         errorMessage.style.display = 'block';
-        errorMessage.textContent = 'Lỗi đọc file SRT. Vui lòng thử lại.';
-        console.error('FileReader error for SRT file.');
+        errorMessage.textContent = 'Không thể đọc file SRT. Vui lòng thử lại.';
+        console.error('Lỗi FileReader với file SRT.');
         isSubtitlesLoaded = false;
       };
       fileReader.readAsText(subtitleFile, 'UTF-8');
+    });
+
+    // Handle subtitle word click
+    subtitlesDiv.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const subtitleTarget = e.target.closest('.subtitle');
+      if (!subtitleTarget) return;
+      document.querySelectorAll('.subtitle').forEach(w => w.classList.remove('selected'));
+      subtitleTarget.classList.add('selected');
+      video.pause();
+      translateWord(subtitleTarget.textContent, subtitleTarget);
+    });
+
+    // Handle subtitle selection in textarea
+    subtitleDisplay.addEventListener('mouseup', () => {
+      const selectedText = subtitleDisplay.value.substring(subtitleDisplay.selectionStart, subtitleDisplay.selectionEnd).trim();
+      if (selectedText) {
+        video.pause();
+        translateWord(selectedText, subtitleDisplay);
+      }
     });
 
     // Debounce function
@@ -828,17 +746,116 @@
       }
     }
 
-    // Handle subtitle word click
-    subtitlesDiv.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      const subtitleTarget = e.target.closest('.subtitle');
-      if (!subtitleTarget) return;
-      document.querySelectorAll('.subtitle').forEach(w => w.classList.remove('selected'));
-      subtitleTarget.classList.add('selected');
-      video.pause();
-      translateWord(subtitleTarget.textContent, subtitleTarget);
+    // Handle looping
+    function handleLooping() {
+      if (isLooping && video.currentTime >= loopEnd) {
+        video.currentTime = loopStart;
+        video.play();
+      }
+    }
+
+    // Set loop start
+    setLoopStartElement.addEventListener('click', () => {
+      loopStart = video.currentTime;
+      loopStartElement.textContent = formatTime(loopStart);
     });
+
+    // Set loop end
+    setLoopEndElement.addEventListener('click', () => {
+      loopEnd = video.currentTime;
+      loopEndElement.textContent = formatTime(loopEnd);
+    });
+
+    // Add loop
+    addLoopElement.addEventListener('click', () => {
+      if (loopStart >= loopEnd || loopStart < 0 || loopEnd > video.duration) {
+        errorMessage.style.display = 'block';
+        errorMessage.textContent = 'Thời gian lặp không hợp lệ. Vui lòng đảm bảo thời gian bắt đầu nhỏ hơn thời gian kết thúc và nằm trong phạm vi video.';
+        return;
+      }
+      loops.push({ start: loopStart, end: loopEnd });
+      updateLoopList();
+      loopStart = 0;
+      loopEnd = 0;
+      loopStartElement.textContent = '00:00';
+      loopEndElement.textContent = '00:00';
+      errorMessage.style.display = 'none';
+    });
+
+    // Toggle loop
+    toggleLoopElement.addEventListener('change', () => {
+      isLooping = toggleLoopElement.checked;
+      toggleLoopElement.nextElementSibling.querySelector('.toggle-text').textContent = isLooping ? 'BẬT' : 'TẮT';
+      localStorage.setItem('loopEnabled', isLooping);
+      if (!isLooping) {
+        loopStart = 0;
+        loopEnd = video.duration || 0;
+        loopStartElement.textContent = '00:00';
+        loopEndElement.textContent = formatTime(loopEnd);
+      }
+      console.log('Đã thay đổi trạng thái lặp:', isLooping);
+    });
+
+    // Toggle subtitles
+    toggleSubtitlesElement.addEventListener('change', () => {
+      subtitleEnabled = toggleSubtitlesElement.checked;
+      subtitlesDiv.style.display = subtitleEnabled ? 'block' : 'none';
+      subtitleDisplay.value = subtitleEnabled ? subtitleDisplay.value : '';
+      toggleSubtitlesElement.nextElementSibling.querySelector('.toggle-text').textContent = subtitleEnabled ? 'BẬT' : 'TẮT';
+      localStorage.setItem('subtitleEnabled', subtitleEnabled);
+      if (subtitleEnabled) updateSubtitles();
+      console.log('Đã thay đổi trạng thái phụ đề:', subtitleEnabled);
+    });
+
+    // Clear data
+    clearDataElement.addEventListener('click', () => {
+      localStorage.removeItem('videoUrl');
+      localStorage.removeItem('videoFileName');
+      localStorage.removeItem('subtitleContent');
+      localStorage.removeItem('loopList');
+      localStorage.removeItem('loopEnabled');
+      localStorage.removeItem('subtitleEnabled');
+      video.src = '';
+      video.load();
+      subtitles = [];
+      loops = [];
+      isVideoLoaded = false;
+      isSubtitlesLoaded = false;
+      hasPlayed = false;
+      isLooping = false;
+      subtitleEnabled = true;
+      inputOverlay.style.display = 'flex';
+      subtitlesDiv.innerHTML = '';
+      subtitlesDiv.style.display = 'none';
+      subtitleDisplay.value = '';
+      loopListElement.innerHTML = '';
+      loopMarkersElement.innerHTML = '';
+      loopStartElement.textContent = '00:00';
+      loopEndElement.textContent = '00:00';
+      toggleLoopElement.checked = false;
+      toggleLoopElement.nextElementSibling.querySelector('.toggle-text').textContent = 'TẮT';
+      toggleSubtitlesElement.checked = true;
+      toggleSubtitlesElement.nextElementSibling.querySelector('.toggle-text').textContent = 'BẬT';
+      errorMessage.style.display = 'none';
+      console.log('Đã xóa tất cả dữ liệu và đặt lại trạng thái.');
+    });
+
+    // Handle fullscreen change
+    video.addEventListener('fullscreenchange', updateSubtitles);
+
+    // Adjust on resize
+    window.addEventListener('resize', updateSubtitles);
+
+    // Initial update on video load
+    video.addEventListener('loadedmetadata', () => {
+      updateSubtitles();
+      loopEnd = video.duration;
+      loopEndElement.textContent = formatTime(loopEnd);
+    });
+
+    // Handle play or playing
+    video.addEventListener('play', updateSubtitles);
+    video.addEventListener('playing', updateSubtitles);
 
     // Close popup
     function closePopup() {
@@ -847,7 +864,7 @@
 
     // Close popup on click outside
     document.addEventListener('click', (e) => {
-      if (!translationPopup.contains(e.target) && !e.target.classList.contains('subtitle')) {
+      if (!translationPopup.contains(e.target) && !e.target.classList.contains('subtitle') && e.target !== subtitleDisplay) {
         closePopup();
       }
     });
@@ -860,8 +877,8 @@
     let initialY;
 
     translationPopup.addEventListener('mousedown', (e) => {
-      initialX = e.clientX - currentX;
-      initialY = e.clientY - currentY;
+      initialX = e.clientX - (currentX || 0);
+      initialY = e.clientY - (currentY || 0);
       isDragging = true;
     });
 
@@ -911,37 +928,37 @@
 
       const translationPrompt = `
         Yêu cầu:
-        **Đầu tiên phải loại bỏ các định dạng không thuộc ngôn ngữ của "${cleanedWord}" và "${sentence}" (loại bỏ các thẻ HTML, các ký tự đặc biệt không thuộc tiếng Đức).
-        **Tiếp tục phân tích từ/cụm từ "${cleanedWord}" trong câu "${sentence}" và trả về bản dịch sang tiếng Việt.
+        **Đầu tiên, loại bỏ các định dạng không thuộc ngôn ngữ của "${cleanedWord}" và "${sentence}" (loại bỏ thẻ HTML, ký tự đặc biệt không thuộc tiếng Đức).**
+        **Tiếp theo, phân tích từ/cụm từ "${cleanedWord}" trong câu "${sentence}" và trả về bản dịch sang tiếng Việt.**
 
-          Trả về duy nhất cấu trúc JSON theo mẫu sau:
-            {
-              "tugoc": "Từ gốc (Động từ: dạng nguyên thể, kèm tiền tố tách nếu có; Danh từ: dạng số ít nhất kèm mạo từ; giữ nguyên nếu là cụm từ/câu)",
-              "nghia": "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ... (kết hợp loại từ và các nghĩa Tiếng Việt, ưu tiên nhiều nghĩa nếu có)"
-            }
+        Trả về duy nhất cấu trúc JSON theo mẫu sau:
+          {
+            "tugoc": "Từ gốc (Động từ: dạng nguyên thể, kèm tiền tố tách nếu có; Danh từ: dạng số ít kèm mạo từ; giữ nguyên nếu là cụm từ/câu)",
+            "nghia": "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ... (kết hợp loại từ và các nghĩa tiếng Việt, ưu tiên nhiều nghĩa nếu có)"
+          }
 
-          A. Xác định loại từ của "${cleanedWord}":
-             1. Câu: Nếu "${cleanedWord}" có chủ ngữ, vị ngữ, và dấu câu cuối (., !, ?), hoặc cấu trúc ngữ pháp đầy đủ.
-                - tugoc: "${cleanedWord}" (không thêm bớt)
-                - nghia: "Câu: <Nghĩa Tiếng Việt của câu)"
-             2. Cụm từ: Nếu "${cleanedWord}" có hai từ trở lên nhưng không phải câu hoàn chỉnh.
-                - tugoc: "${cleanedWord}" (không thêm bớt)
-                - nghia: "Cụm từ: <Nghĩa Tiếng Việt chính xác>"
-             3. Từ đơn: Nếu "${cleanedWord}" là một từ.
-                - Động từ tách: Kiểm tra "${sentence}" để tìm tiền tố tách (ab|an|auf|aus|bei|da|ein|fest|her|hin|los|mit|nach|statt|teil|vor|weg|zu|zurück|zusammen) ở cuối câu hoặc trước liên từ (und/oder/aber). Chuyển về nguyên thể và ghép tiền tố (ví dụ: "mach" + "aus" → "ausmachen").
-                - Động từ phản thân: Tìm "sich|mich|dich|eur|uns" (ví dụ: "sich ändern").
-                - Động từ kèm giới từ: Xác định giới từ (ví dụ: "teilnehmen an").
-                - Danh từ: Nếu viết hoa, thêm mạo từ (der|die|das, tham khảo duden.de).
-                - Tính từ/Trạng từ/Đại từ/Giới từ/Liên từ/Thán từ: Dùng dạng gốc.
-                - tugoc: Dạng đúng theo loại từ (ví dụ: "ausmachen", "der Tisch").
-                - nghia: "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ..."
+        A. Xác định loại từ của "${cleanedWord}":
+          1. Câu: Nếu "${cleanedWord}" có chủ ngữ, vị ngữ và dấu câu cuối (., !, ?), hoặc cấu trúc ngữ pháp đầy đủ.
+            - tugoc: "${cleanedWord}" (giữ nguyên)
+            - nghia: "Câu: <Nghĩa tiếng Việt của câu>"
+          2. Cụm từ: Nếu "${cleanedWord}" có hai từ trở lên nhưng không phải câu hoàn chỉnh.
+            - tugoc: "${cleanedWord}" (giữ nguyên)
+            - nghia: "Cụm từ: <Nghĩa tiếng Việt chính xác>"
+          3. Từ đơn: Nếu "${cleanedWord}" là một từ.
+            - Động từ tách: Kiểm tra "${sentence}" để tìm tiền tố tách (ab|an|auf|aus|bei|da|ein|fest|her|hin|los|mit|nach|statt|teil|vor|weg|zu|zurück|zusammen) ở cuối câu hoặc trước liên từ (und/oder/aber). Chuyển về nguyên thể và ghép tiền tố (ví dụ: "mach" + "aus" → "ausmachen").
+            - Động từ phản thân: Tìm "sich|mich|dich|eur|uns" (ví dụ: "sich ändern").
+            - Động từ kèm giới từ: Xác định giới từ (ví dụ: "teilnehmen an").
+            - Danh từ: Nếu viết hoa, thêm mạo từ (der|die|das, tham khảo duden.de).
+            - Tính từ/Trạng từ/Đại từ/Giới từ/Liên từ/Thán từ: Dùng dạng gốc.
+            - tugoc: Dạng đúng theo loại từ (ví dụ: "ausmachen", "der Tisch").
+            - nghia: "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ..."
 
-          Lưu ý:
-            - Xác định chính xác loại từ, không cắt xén "${cleanedWord}".
-            - Chỉ đưa ra nghĩa riêng cho "${cleanedWord}", không bao gồm nghĩa của từ khác trong "${sentence}".
-            - Ưu tiên ngữ cảnh "${sentence}".
-            - Tham khảo dict.cc/leo.org/duden.de.
-            - Trả về JSON thuần hợp lệ trong \`\`\`json\n...\n\`\`\`.
+        Lưu ý:
+          - Xác định chính xác loại từ, không cắt xén "${cleanedWord}".
+          - Chỉ đưa ra nghĩa riêng cho "${cleanedWord}", không bao gồm nghĩa của từ khác trong "${sentence}".
+          - Ưu tiên ngữ cảnh "${sentence}".
+          - Tham khảo dict.cc/leo.org/duden.de.
+          - Trả về JSON thuần hợp lệ trong \`\`\`json\n...\n\`\`\`.
       `;
 
       async function tryTranslateWithKey(keyIndex) {
@@ -963,19 +980,24 @@
 
           if (!response.ok) {
             if (response.status === 429 && keyIndex < apiKeys.length - 1) {
-              console.warn(`API key ${keyIndex} hit rate limit, trying next key.`);
+              console.warn(`API key ${keyIndex} đã vượt giới hạn, thử key tiếp theo.`);
               return tryTranslateWithKey(keyIndex + 1);
             }
-            throw new Error(`HTTP error! Status: ${response.status}`);
+            throw new Error(`Lỗi HTTP: ${response.status}`);
           }
 
           const data = await response.json();
           const content = data.candidates[0].content.parts[0].text;
           const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
           if (!jsonMatch) {
-            throw new Error('Invalid JSON response from Gemini API');
+            throw new Error('Phản hồi từ API không chứa JSON hợp lệ.');
           }
           const jsonData = JSON.parse(jsonMatch[1]);
+
+          // Kiểm tra dữ liệu JSON
+          if (!jsonData.tugoc || !jsonData.nghia) {
+            throw new Error('Dữ liệu JSON không đầy đủ: Thiếu tugoc hoặc nghia.');
+          }
 
           popupContent.innerHTML = `
             <p><strong>Từ gốc:</strong> ${jsonData.tugoc}</p>
@@ -985,22 +1007,22 @@
           restorePopupPosition();
         } catch (error) {
           if (keyIndex < apiKeys.length - 1) {
-            console.warn(`API key ${keyIndex} failed: ${error.message}, trying next key.`);
+            console.warn(`Key API ${keyIndex} thất bại: ${error.message}, thử key tiếp theo.`);
             return tryTranslateWithKey(keyIndex + 1);
           } else {
-            popupContent.innerHTML = `<p>Lỗi dịch "${cleanedWord}": ${error.message}</p>`;
+            popupContent.innerHTML = `<p>Lỗi khi dịch "${cleanedWord}": ${error.message}</p>`;
             translationPopup.style.display = 'block';
             restorePopupPosition();
-            console.error('All API keys failed:', error);
+            console.error('Tất cả API key thất bại:', error);
           }
         }
       }
 
       if (apiKeys.length === 0 || apiKeys[0] === 'YOUR_API_KEY_1') {
-        popupContent.innerHTML = '<p>Chưa cung cấp API key hợp lệ. Vui lòng thêm key Gemini vào mã.</p>';
+        popupContent.innerHTML = '<p>Chưa cung cấp API key hợp lệ. Vui lòng thêm key Gemini API vào mã.</p>';
         translationPopup.style.display = 'block';
         restorePopupPosition();
-        console.error('No valid API keys provided.');
+        console.error('Không có API key hợp lệ.');
         return;
       }
 
