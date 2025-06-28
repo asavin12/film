@@ -4,14 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Trình phát video với phụ đề, dịch và lặp đoạn</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="script.js" defer></script>
 </head>
 <body class="bg-gray-100 font-sans">
   <div class="container mx-auto p-4">
     <div id="error-message" class="mb-4"></div>
     <div class="video-container">
-      <video id="video-player" controls></video>
+      <video id="video-player" controls playsinline></video>
       <div class="custom-controls">
         <button id="set-loop-start" title="Đặt thời điểm bắt đầu đoạn lặp">Bắt đầu</button>
         <span id="loop-start-display">00:00</span>
@@ -27,7 +28,7 @@
           <span class="slider" title="Bật/tắt hiển thị phụ đề">Sub: <span class="toggle-text">BẬT</span></span>
         </label>
         <button id="rewind-btn" title="Tua lùi số giây đã chọn">Lùi</button>
-        <input type="number" id="seek-seconds" min="1" max="60" value="5" title="Nhập số giây để tua (1-60)">
+        <input type="number" id="seek-seconds" min="1" max="60" value="5" class="border p-1 w-16 text-sm" title="Nhập số giây để tua (1-60)">
         <button id="forward-btn" title="Tua tiến số giây đã chọn">Tiến</button>
         <button id="clear-data" title="Xóa video, phụ đề và danh sách đoạn lặp">Xóa</button>
       </div>
@@ -35,33 +36,28 @@
       <div id="subtitles"></div>
       <div id="input-overlay" class="input-overlay">
         <div class="input-box">
-          <label class="block mb-2 font-bold text-gray-700">Nhập URL video (MP4, Google Drive):</label>
-          <input type="text" id="video-url" placeholder="Nhập URL video" class="border p-2 w-full mb-2">
-          <label class="block text-xs text-gray-500 mb-2">Hoặc tải file video:</label>
+          <label class="block mb-2 font-bold text-gray-700">Nhập URL video hoặc tải file video:</label>
+          <input type="text" id="video-url" placeholder="Nhập URL video (ví dụ: https://example.com/video.mp4)" class="border p-2 w-full mb-2">
           <input type="file" id="video-upload" accept="video/*" class="border p-2 w-full">
         </div>
         <div class="input-box">
-          <label class="block mb-2 font-bold text-gray-700">Nhập URL phụ đề (SRT, Google Drive):</label>
-           <input type="text" id="subtitle-url" placeholder="Nhập URL file .srt" class="border p-2 w-full mb-2">
-          <label class="block text-xs text-gray-500 mb-2">Hoặc tải file phụ đề (.srt):</label>
+          <label class="block mb-2 font-bold text-gray-700">Tải file phụ đề (.srt):</label>
           <input type="file" id="subtitle-upload" accept=".srt" class="border p-2 w-full">
         </div>
       </div>
       <div id="translation-popup">
-        <span class="close-btn" onclick="closePopup()">×</span>
+        <span class="close-btn">×</span>
         <div id="popup-content"></div>
       </div>
     </div>
-      <div class="subtitle-box mt-2 bg-white p-4 rounded-lg shadow-md w-full mx-auto">
-        <label class="block mb-2 font-bold text-gray-700">Phụ đề (bôi đen để tự động dịch):</label>
-        <textarea id="subtitle-display" class="w-full h-18 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-center" readonly placeholder="Phụ đề sẽ được hiển thị tại đây..."></textarea>
-      </div>
+    <div class="subtitle-box mt-2 bg-white p-4 rounded-lg shadow-md w-full mx-auto">
+      <label class="block mb-2 font-bold text-gray-700">Phụ đề (bôi đen để tự động dịch):</label>
+      <textarea id="subtitle-display" class="w-full h-18 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-center" readonly placeholder="Phụ đề sẽ được hiển thị tại đây..."></textarea>
+    </div>
     <div class="loop-list-container">
       <h4 class="font-bold">Danh sách đoạn lặp</h4>
       <ul id="loop-list"></ul>
     </div>
   </div>
-
-  <script src="script.js"></script>
 </body>
 </html>
