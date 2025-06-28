@@ -1,0 +1,244 @@
+.video-container {
+  position: relative;
+  width: 95%;
+  margin: 0 auto;
+}
+#video-player {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+#subtitles {
+  position: absolute;
+  bottom: 15%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: white;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+  z-index: 2147483647;
+  display: block;
+  visibility: visible;
+  white-space: pre-wrap;
+  line-height: 1.2;
+  transform: translateZ(0);
+  contain: paint;
+}
+.subtitle {
+  cursor: pointer;
+  display: inline-block;
+  letter-spacing: -0.02em;
+  background: rgb(0, 0, 0);
+}
+.subtitle:hover {
+  color: orange;
+}
+.selected {
+  color: yellow;
+  font-weight: bold;
+}
+#error-message {
+  color: red;
+  display: none;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+#translation-popup {
+  display: none;
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 2147483648;
+  max-width: 400px;
+  font-size: 0.9rem;
+  cursor: move;
+  user-select: none;
+}
+#translation-popup .close-btn {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+.input-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 1rem;
+  z-index: 2147483646;
+}
+.input-box {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 400px;
+}
+.custom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f1f1;
+  padding: 5px;
+  border-radius: 0 0 8px 8px;
+  width: 95%;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+.custom-controls button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+.custom-controls button:hover {
+  background: #45a049;
+}
+#clear-data {
+  background: #f44336;
+}
+#clear-data:hover {
+  background: #da190b;
+}
+.custom-controls span {
+  font-size: 12px;
+  color: #333;
+}
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 24px;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ccc;
+  transition: 0.4s;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: white;
+  font-size: 10px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background: #4CAF50;
+}
+input:checked + .slider:before {
+  transform: translateX(36px);
+}
+.toggle-text {
+  margin-left: 5px;
+}
+.loop-list-container {
+  margin-top: 1rem;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  width: 95%;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+#loop-list {
+  list-style: none;
+  padding: 0;
+  max-height: 150px;
+  overflow-y: auto;
+}
+#loop-list li {
+  padding: 0.5rem;
+  border-bottom: 1px solid #ddd;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#loop-list li:hover {
+  background-color: #f0f0f0;
+}
+.delete-loop {
+  color: red;
+  cursor: pointer;
+}
+#loop-markers {
+  position: relative;
+  height: 2rem;
+  width: 100%;
+  margin-top: -10px;
+  z-index: 100;
+}
+.loop-marker {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  text-align: center;
+  line-height: 24px;
+  transform: translateX(-50%);
+}
+.loop-marker:nth-child(odd) {
+  top: -25px;
+}
+.loop-marker:nth-child(even) {
+  bottom: -25px;
+}
+
+.custom-controls input[type="number"] {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+  width: 60px;
+  text-align: center;
+}
+.custom-controls input[type="number"]:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+}
