@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Lấy các phần tử DOM ---
+    const videoContainer = document.getElementById('video-container');
     const video = document.getElementById('video-player');
     const inputOverlay = document.getElementById('input-overlay');
     const videoUrlInput = document.getElementById('video-url');
@@ -23,8 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const rewindBtn = document.getElementById('rewind-btn');
     const forwardBtn = document.getElementById('forward-btn');
     const seekSecondsInput = document.getElementById('seek-seconds');
-    // --- THAY ĐỔI: Lấy nút đóng popup bằng JS ---
     const closePopupBtn = document.querySelector('#translation-popup .close-btn');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
 
     // --- Biến trạng thái ---
     let subtitles = [];
@@ -38,9 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let subtitleEnabled = true;
     const debounceDelay = 100;
 
-    // =================================================================
-    // TÍCH HỢP GIẢI MÃ API KEY
-    // =================================================================
+    // --- TÍCH HỢP GIẢI MÃ API KEY ---
     const secretKey = 'mysecretkey';
     const encodedApiKeys = [
       'LDAJBDALJBcdCBMlNgQyKD89GFxQKz4PJRBUJFABJRYBIBJBUS4R',
@@ -146,6 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return div.textContent || div.innerText || '';
     }
 
+    // Cải thiện chức năng bôi đen trên mobile
+    subtitleDisplay.addEventListener('keydown', (e) => {
+        if (!e.ctrlKey && !e.metaKey && e.key.length === 1) {
+            e.preventDefault();
+        }
+    });
+
     // =================================================================
     // XỬ LÝ SỰ KIỆN
     // =================================================================
@@ -225,11 +231,29 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLoopMarkers();
     });
 
+    // Xử lý chức năng toàn màn hình
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            videoContainer.requestFullscreen().catch(err => {
+                alert(`Lỗi khi vào chế độ toàn màn hình: ${err.message} (${err.name})`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) {
+            fullscreenBtn.textContent = 'Thoát';
+        } else {
+            fullscreenBtn.textContent = 'Toàn màn hình';
+        }
+    });
+
     // =================================================================
-    // CHỨC NĂNG LẶP ĐOẠN
+    // CHỨC NĂNG LẶP ĐOẠN, DỊCH THUẬT, KHỞI TẠO (Phần lớn giữ nguyên)
     // =================================================================
     function updateLoopList() {
-        loopListElement.innerHTML = '';
+        loopListElement.innerHTML = "";
         loops.forEach((loop, index) => {
             const li = document.createElement('li');
             li.innerHTML = `<span>${index + 1}. ${formatTime(loop.start)} → ${formatTime(loop.end)}</span> <span class="delete-loop" data-index="${index}">Xóa</span>`;
@@ -254,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('loopList', JSON.stringify(loops));
     }
     function updateLoopMarkers() {
-        loopMarkersElement.innerHTML = '';
+        loopMarkersElement.innerHTML = "";
         if (video.duration) {
             loops.forEach((loop, index) => {
                 const marker = document.createElement('div');
@@ -305,10 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
             video.play();
         }
     });
-
-    // =================================================================
-    // CHỨC NĂNG DỊCH THUẬT VÀ POPUP
-    // =================================================================
     subtitlesDiv.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         const subtitleTarget = e.target.closest('.subtitle');
@@ -325,16 +345,16 @@ document.addEventListener('DOMContentLoaded', () => {
             translateWord(selectedText);
         }
     });
-    function closePopup() { translationPopup.style.display = 'none'; }
-    // --- THAY ĐỔI: Gán sự kiện cho nút đóng bằng JS ---
+    function closePopup() {
+        translationPopup.style.display = 'none';
+    }
     closePopupBtn.addEventListener('click', closePopup);
     document.addEventListener('click', (e) => {
       if (!translationPopup.contains(e.target) && !e.target.classList.contains('subtitle') && e.target !== subtitleDisplay) {
         closePopup();
       }
     });
-    let isDragging = false;
-    let offsetX, offsetY;
+    let isDragging = false, offsetX, offsetY;
     function startDrag(e) {
         isDragging = true;
         translationPopup.style.transition = 'none';
@@ -474,10 +494,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         tryTranslateWithKey(currentApiKeyIndex);
     }
-
-    // =================================================================
-    // CÀI ĐẶT VÀ KHỞI TẠO
-    // =================================================================
     toggleSubtitlesElement.addEventListener('change', () => {
         subtitleEnabled = toggleSubtitlesElement.checked;
         subtitlesDiv.style.display = subtitleEnabled ? 'block' : 'none';

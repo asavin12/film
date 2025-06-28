@@ -11,7 +11,8 @@
 <body class="bg-gray-100 font-sans">
   <div class="container mx-auto p-4">
     <div id="error-message" class="mb-4"></div>
-    <div class="video-container">
+    
+    <div id="video-container" class="video-container">
       <video id="video-player" controls playsinline></video>
       <div class="custom-controls">
         <button id="set-loop-start" title="Đặt thời điểm bắt đầu đoạn lặp">Bắt đầu</button>
@@ -30,6 +31,7 @@
         <button id="rewind-btn" title="Tua lùi số giây đã chọn">Lùi</button>
         <input type="number" id="seek-seconds" min="1" max="60" value="5" class="border p-1 w-16 text-sm" title="Nhập số giây để tua (1-60)">
         <button id="forward-btn" title="Tua tiến số giây đã chọn">Tiến</button>
+        <button id="fullscreen-btn" title="Toàn màn hình / Thoát toàn màn hình">Toàn màn hình</button>
         <button id="clear-data" title="Xóa video, phụ đề và danh sách đoạn lặp">Xóa</button>
       </div>
       <div id="loop-markers"></div>
@@ -50,10 +52,12 @@
         <div id="popup-content"></div>
       </div>
     </div>
+
     <div class="subtitle-box mt-2 bg-white p-4 rounded-lg shadow-md w-full mx-auto">
       <label class="block mb-2 font-bold text-gray-700">Phụ đề (bôi đen để tự động dịch):</label>
-      <textarea id="subtitle-display" class="w-full h-18 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-center" readonly placeholder="Phụ đề sẽ được hiển thị tại đây..."></textarea>
+      <textarea id="subtitle-display" class="w-full h-18 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-center" placeholder="Phụ đề sẽ được hiển thị tại đây..."></textarea>
     </div>
+
     <div class="loop-list-container">
       <h4 class="font-bold">Danh sách đoạn lặp</h4>
       <ul id="loop-list"></ul>
