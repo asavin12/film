@@ -300,10 +300,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+// TÌM HÀM NÀY TRONG TỆP script.js
     async function loadSubtitleFromUrl(url) {
         try {
-            const directUrl = getGoogleDriveDirectLink(url).replace("uc?id=", "uc?export=download&id=");
-            const response = await fetch(directUrl);
+            // Dán URL Web App của bạn vào đây
+            const MY_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_krZJvx1KWqlQ7GitvieCr8dvKrrlTJVuTh3JWoQ2yXAFlqiZu3xsXmwUxhosS2rz/exec';
+
+            // Trích xuất File ID từ link Google Drive
+            const googleDriveRegex = /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
+            const match = url.match(googleDriveRegex);
+
+            if (!match || !match[1]) {
+                throw new Error("URL Google Drive không hợp lệ.");
+            }
+            const fileId = match[1];
+
+            // Tạo URL cuối cùng để gọi Apps Script Proxy
+            const finalUrl = `${MY_APPS_SCRIPT_URL}?id=${fileId}`;
+
+            const response = await fetch(finalUrl);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -314,7 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
             isSubtitlesLoaded = false;
         }
     }
-
     subtitleUrlInput.addEventListener('change', () => {
         const url = subtitleUrlInput.value.trim();
         if (url) {
