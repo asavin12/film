@@ -54,6 +54,7 @@
   background: rgba(0, 0, 0, 0.6);
   padding: 0 0.2em;
   border-radius: 3px;
+  /* THAY ĐỔI: Xóa thuộc tính letter-spacing để chữ gần nhau hơn */
 }
 .subtitle:hover {
   color: orange;

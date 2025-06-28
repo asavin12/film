@@ -145,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return div.textContent || div.innerText || '';
     }
 
-    // Cải thiện chức năng bôi đen trên mobile
     subtitleDisplay.addEventListener('keydown', (e) => {
         if (!e.ctrlKey && !e.metaKey && e.key.length === 1) {
             e.preventDefault();
@@ -231,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLoopMarkers();
     });
 
-    // Xử lý chức năng toàn màn hình
     fullscreenBtn.addEventListener('click', () => {
         if (!document.fullscreenElement) {
             videoContainer.requestFullscreen().catch(err => {
@@ -250,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // =================================================================
-    // CHỨC NĂNG LẶP ĐOẠN, DỊCH THUẬT, KHỞI TẠO (Phần lớn giữ nguyên)
+    // CHỨC NĂNG LẶP ĐOẠN
     // =================================================================
     function updateLoopList() {
         loopListElement.innerHTML = "";
@@ -329,6 +327,10 @@ document.addEventListener('DOMContentLoaded', () => {
             video.play();
         }
     });
+
+    // =================================================================
+    // CHỨC NĂNG DỊCH THUẬT VÀ POPUP
+    // =================================================================
     subtitlesDiv.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         const subtitleTarget = e.target.closest('.subtitle');
@@ -338,13 +340,22 @@ document.addEventListener('DOMContentLoaded', () => {
             translateWord(subtitleTarget.textContent);
         }
     });
-    subtitleDisplay.addEventListener('mouseup', () => {
-        const selectedText = subtitleDisplay.value.substring(subtitleDisplay.selectionStart, subtitleDisplay.selectionEnd).trim();
-        if (selectedText) {
-            video.pause();
-            translateWord(selectedText);
-        }
-    });
+
+    // THAY ĐỔI: Cải thiện chức năng bôi đen trên mobile
+    function handleSelectionAndTranslate() {
+        // Đợi một chút để trình duyệt ổn định việc lựa chọn văn bản
+        setTimeout(() => {
+            const selectedText = subtitleDisplay.value.substring(subtitleDisplay.selectionStart, subtitleDisplay.selectionEnd).trim();
+            // Chỉ dịch khi có nhiều hơn 1 ký tự được chọn
+            if (selectedText.length > 1) {
+                video.pause();
+                translateWord(selectedText);
+            }
+        }, 100);
+    }
+    subtitleDisplay.addEventListener('mouseup', handleSelectionAndTranslate);
+    subtitleDisplay.addEventListener('touchend', handleSelectionAndTranslate);
+
     function closePopup() {
         translationPopup.style.display = 'none';
     }
@@ -410,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
         restorePopupPosition();
 
         if (encodedApiKeys.length === 0 || encodedApiKeys[0].startsWith('DÁN_KEY')) {
-            popupContent.innerHTML = '<p>Chưa cung cấp API key đã mã hóa. Vui lòng dùng công cụ để mã hóa và dán key vào tệp `script.js`.</p>';
+            popupContent.innerHTML = '<p>Chưa cung cấp API key đã mã hóa.</p>';
             return;
         }
 
@@ -457,29 +468,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 popupContent.innerHTML = `<p>Lỗi: Không thể giải mã API key.</p>`;
                 return;
             }
-
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: translationPrompt }] }] })
                 });
-
                 if (!response.ok) {
                     if (response.status === 429 && keyIndex < encodedApiKeys.length - 1) {
                         return tryTranslateWithKey(keyIndex + 1);
                     }
                     throw new Error(`Lỗi HTTP: ${response.status}`);
                 }
-
                 const data = await response.json();
                 const content = data.candidates[0].content.parts[0].text;
                 const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
                 if (!jsonMatch) throw new Error('Phản hồi API không chứa JSON hợp lệ.');
-                
                 const jsonData = JSON.parse(jsonMatch[1]);
                 if (!jsonData.tugoc || !jsonData.nghia) throw new Error('Dữ liệu JSON không đầy đủ.');
-
                 popupContent.innerHTML = `
                     <p><strong>Từ gốc:</strong> ${jsonData.tugoc}</p>
                     <p><strong>Nghĩa:</strong> ${jsonData.nghia}</p>
@@ -518,9 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (videoUrl) { video.src = videoUrl; isVideoLoaded = true; }
         else if (videoFileName) { showError(`Vui lòng tải lại file video: ${videoFileName}`); }
         if (srtContent) { subtitles = parseSRT(srtContent); isSubtitlesLoaded = subtitles.length > 0; }
-        
         hideOverlayIfReady();
-        
         if (loopList) { loops = JSON.parse(loopList); updateLoopList(); }
         isLooping = loopEnabled !== null ? JSON.parse(loopEnabled) : false;
         toggleLoopElement.checked = isLooping;
