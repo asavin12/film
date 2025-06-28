@@ -14,7 +14,8 @@
 /* Giao diện phụ đề trên video */
 #subtitles {
   position: absolute;
-  bottom: 20%; 
+  /* THAY ĐỔI: Đẩy phụ đề lên cao hơn nữa trên mobile */
+  bottom: 28%; 
   left: 0;
   right: 0;
   width: 100%;
@@ -46,6 +47,8 @@
   -ms-user-select: text !important;
   user-select: text !important;
   cursor: text;
+  /* Thêm padding để nút Dịch không che mất chữ */
+  padding-right: 55px !important;
 }
 
 .subtitle {
@@ -54,7 +57,6 @@
   background: rgba(0, 0, 0, 0.6);
   padding: 0 0.2em;
   border-radius: 3px;
-  /* THAY ĐỔI: Xóa thuộc tính letter-spacing để chữ gần nhau hơn */
 }
 .subtitle:hover {
   color: orange;
@@ -77,13 +79,38 @@
 }
 #translation-popup .close-btn {
   position: absolute;
-  top: 5px;
-  right: 10px;
+  top: 1px;
+  right: 2px;
   cursor: pointer;
-  font-size: 1.5rem;
+  font-size: 0,5rem;
   font-weight: bold;
-  color: #555;
+  color: #000000;
 }
+
+/* THAY ĐỔI: CSS cho khu vực textarea và nút dịch mới */
+.textarea-wrapper {
+  position: relative;
+}
+#translate-textarea-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+#translate-textarea-btn:hover {
+  background-color: #45a049;
+}
+#translate-textarea-btn:active {
+  background-color: #3e8e41;
+}
+
 
 /* Lớp phủ nhập liệu ban đầu */
 .input-overlay {

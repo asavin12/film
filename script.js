@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const seekSecondsInput = document.getElementById('seek-seconds');
     const closePopupBtn = document.querySelector('#translation-popup .close-btn');
     const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const translateTextareaBtn = document.getElementById('translate-textarea-btn');
 
     // --- Biến trạng thái ---
     let subtitles = [];
@@ -42,8 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- TÍCH HỢP GIẢI MÃ API KEY ---
     const secretKey = 'mysecretkey';
     const encodedApiKeys = [
-      'LDAJBDALJBcdCBMlNgQyKD89GFxQKz4PJRBUJFABJRYBIBJBUS4R',
-      'LDAJBDALJEQBLAkVPQsBKRoJPSU3TwNKAgYIOVcHLV0xVSoEKCkZ',
+        'LDAJBDALJhg/F0AsISQjUiEXBS8gEDtPPFAhBVQ1Rj0qBD08XCQj',
+        'LDAJBDALJEQBLAkVPQsBKRoJPSU3TwNKAgYIOVcHLV0xVSoEKCkZ',
+        'LDAJBDALIQAFPwFZKjc8EkZRLg1TSDQ2ORUEBh0uP10cIg4bClo7',
     ];
     let currentApiKeyIndex = 0;
     function decodeApiKey(encodedStr, key) {
@@ -341,12 +343,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // THAY ĐỔI: Cải thiện chức năng bôi đen trên mobile
     function handleSelectionAndTranslate() {
-        // Đợi một chút để trình duyệt ổn định việc lựa chọn văn bản
         setTimeout(() => {
             const selectedText = subtitleDisplay.value.substring(subtitleDisplay.selectionStart, subtitleDisplay.selectionEnd).trim();
-            // Chỉ dịch khi có nhiều hơn 1 ký tự được chọn
             if (selectedText.length > 1) {
                 video.pause();
                 translateWord(selectedText);
@@ -355,6 +354,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     subtitleDisplay.addEventListener('mouseup', handleSelectionAndTranslate);
     subtitleDisplay.addEventListener('touchend', handleSelectionAndTranslate);
+
+    // --- SỬA LỖI & CẢI TIẾN LOGIC NÚT DỊCH ---
+    translateTextareaBtn.addEventListener('click', () => {
+        if (subtitleDisplay.value.trim()) {
+            // Bước 1: Tự động bôi đen toàn bộ text
+            subtitleDisplay.select();
+            
+            // Bước 2: Gọi hàm xử lý dịch như khi người dùng tự bôi đen.
+            // Điều này đảm bảo logic được thống nhất và tránh lặp code.
+            handleSelectionAndTranslate();
+        }
+    });
+
 
     function closePopup() {
         translationPopup.style.display = 'none';
