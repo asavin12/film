@@ -1,3 +1,59 @@
+/* --- CÁC STYLE MỚI CHO GIAO DIỆN THƯ VIỆN --- */
+.video-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.video-list-item {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.video-list-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.video-list-item img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+}
+
+.video-list-item .title {
+  font-weight: bold;
+  padding: 1rem;
+  color: #333;
+}
+
+.player-view.hidden {
+  display: none;
+}
+
+.back-button {
+  background-color: #78716c;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  transition: background-color 0.2s;
+}
+.back-button:hover {
+  background-color: #57534e;
+}
+
+
+/* --- CÁC STYLE CŨ CHO TRÌNH PHÁT (GIỮ NGUYÊN) --- */
+
 /* Giao diện chung và vùng chứa video */
 .video-container {
   position: relative;
@@ -14,7 +70,6 @@
 /* Giao diện phụ đề trên video */
 #subtitles {
   position: absolute;
-  /* THAY ĐỔI: Đẩy phụ đề lên cao hơn nữa trên mobile */
   bottom: 28%; 
   left: 0;
   right: 0;
@@ -47,7 +102,6 @@
   -ms-user-select: text !important;
   user-select: text !important;
   cursor: text;
-  /* Thêm padding để nút Dịch không che mất chữ */
   padding-right: 55px !important;
 }
 
@@ -79,15 +133,14 @@
 }
 #translation-popup .close-btn {
   position: absolute;
-  top: 1px;
-  right: 2px;
+  top: 5px;
+  right: 10px;
   cursor: pointer;
-  font-size: 0,5rem;
+  font-size: 1.5rem;
   font-weight: bold;
-  color: #000000;
+  color: #555;
 }
 
-/* THAY ĐỔI: CSS cho khu vực textarea và nút dịch mới */
 .textarea-wrapper {
   position: relative;
 }
@@ -109,31 +162,6 @@
 }
 #translate-textarea-btn:active {
   background-color: #3e8e41;
-}
-
-
-/* Lớp phủ nhập liệu ban đầu */
-.input-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  gap: 1rem;
-  z-index: 2147483646;
-}
-.input-box {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 450px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 /* Nút fullscreen tùy chỉnh */
