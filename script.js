@@ -1,143 +1,552 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Lấy các phần tử giao diện ---
-    const galleryView = document.getElementById('video-gallery');
-    const playerView = document.getElementById('player-view');
-    const backToGalleryBtn = document.getElementById('back-to-gallery-btn');
-    
-    // --- Lấy các phần tử của trình phát ---
+    // --- Lấy các phần tử DOM ---
     const videoContainer = document.getElementById('video-container');
     const video = document.getElementById('video-player');
+    const inputOverlay = document.getElementById('input-overlay');
+    const videoUrlInput = document.getElementById('video-url');
+    const videoUpload = document.getElementById('video-upload');
+    const subtitleUpload = document.getElementById('subtitle-upload');
     const subtitlesDiv = document.getElementById('subtitles');
     const subtitleDisplay = document.getElementById('subtitle-display');
     const translationPopup = document.getElementById('translation-popup');
     const popupContent = document.getElementById('popup-content');
     const errorMessage = document.getElementById('error-message');
+    const setLoopStartElement = document.getElementById('set-loop-start');
+    const setLoopEndElement = document.getElementById('set-loop-end');
+    const loopStartElement = document.getElementById('loop-start-display');
+    const loopEndElement = document.getElementById('loop-end-display');
+    const addLoopElement = document.getElementById('add-loop');
+    const toggleLoopElement = document.getElementById('toggle-loop');
+    const toggleSubtitlesElement = document.getElementById('toggle-subtitles');
+    const clearDataElement = document.getElementById('clear-data');
+    const loopListElement = document.getElementById('loop-list');
+    const loopMarkersElement = document.getElementById('loop-markers');
+    const rewindBtn = document.getElementById('rewind-btn');
+    const forwardBtn = document.getElementById('forward-btn');
+    const seekSecondsInput = document.getElementById('seek-seconds');
+    const closePopupBtn = document.querySelector('#translation-popup .close-btn');
     const fullscreenBtn = document.getElementById('fullscreen-btn');
     const translateTextareaBtn = document.getElementById('translate-textarea-btn');
-    const closePopupBtn = document.querySelector('#translation-popup .close-btn');
-    // ... và các phần tử điều khiển khác
-    const setLoopStartElement=document.getElementById("set-loop-start"),setLoopEndElement=document.getElementById("set-loop-end"),loopStartElement=document.getElementById("loop-start-display"),loopEndElement=document.getElementById("loop-end-display"),addLoopElement=document.getElementById("add-loop"),toggleLoopElement=document.getElementById("toggle-loop"),toggleSubtitlesElement=document.getElementById("toggle-subtitles"),loopListElement=document.getElementById("loop-list"),loopMarkersElement=document.getElementById("loop-markers"),rewindBtn=document.getElementById("rewind-btn"),forwardBtn=document.getElementById("forward-btn"),seekSecondsInput=document.getElementById("seek-seconds");
 
     // --- Biến trạng thái ---
     let subtitles = [];
     let currentSentence = '';
+    let isVideoLoaded = false;
+    let isSubtitlesLoaded = false;
+    let loopStart = 0;
+    let loopEnd = 0;
     let loops = [];
     let isLooping = false;
     let subtitleEnabled = true;
-    let videoData = []; // Lưu danh sách video từ JSON
+    const debounceDelay = 100;
 
     // --- TÍCH HỢP GIẢI MÃ API KEY ---
     const secretKey = 'mysecretkey';
-    const encodedApiKeys = ['LDAJBDALJhg/F0AsISQjUiEXBS8gEDtPPFAhBVQ1Rj0qBD08XCQj','LDAJBDALJEQBLAkVPQsBKRoJPSU3TwNKAgYIOVcHLV0xVSoEKCkZ','LDAJBDALIQAFPwFZKjc8EkZRLg1TSDQ2ORUEBh0uP10cIg4bClo7'];
+    const encodedApiKeys = [
+        'LDAJBDALJhg/F0AsISQjUiEXBS8gEDtPPFAhBVQ1Rj0qBD08XCQj',
+        'LDAJBDALJEQBLAkVPQsBKRoJPSU3TwNKAgYIOVcHLV0xVSoEKCkZ',
+        'LDAJBDALIQAFPwFZKjc8EkZRLg1TSDQ2ORUEBh0uP10cIg4bClo7',
+    ];
     let currentApiKeyIndex = 0;
-    function decodeApiKey(e,t){try{const o=atob(e);return Array.from(o).map(((e,o)=>String.fromCharCode(e.charCodeAt(0)^t.charCodeAt(o%t.length)))).join("")}catch(e){return console.error("Lỗi giải mã API key.",e),""}}
-
-    // =================================================================
-    // KHỞI TẠO ỨNG DỤNG
-    // =================================================================
-
-    // Hàm chính để tải và hiển thị danh sách video
-    async function initializeGallery() {
+    function decodeApiKey(encodedStr, key) {
         try {
-            const response = await fetch('videos.json');
-            if (!response.ok) {
-                throw new Error(`Không thể tải videos.json: ${response.statusText}`);
-            }
-            videoData = await response.json();
-            
-            galleryView.innerHTML = ''; // Xóa nội dung cũ
-            videoData.forEach(videoInfo => {
-                const videoItem = document.createElement('div');
-                videoItem.className = 'video-list-item';
-                videoItem.dataset.videoId = videoInfo.id; // Lưu id để tham chiếu
-                
-                videoItem.innerHTML = `
-                    <img src="${videoInfo.thumbnailUrl}" alt="${videoInfo.title}">
-                    <h3 class="title">${videoInfo.title}</h3>
-                `;
-                
-                videoItem.addEventListener('click', () => {
-                    const selectedVideo = videoData.find(v => v.id === videoInfo.id);
-                    if (selectedVideo) {
-                        // Chuyển giao diện
-                        galleryView.classList.add('hidden');
-                        playerView.classList.remove('hidden');
-                        // Tải video và phụ đề
-                        loadPlayer(selectedVideo.videoUrl, selectedVideo.subtitleUrl);
-                    }
+            const xorResult = atob(encodedStr);
+            return Array.from(xorResult)
+                .map((char, i) => String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(i % key.length)))
+                .join('');
+        } catch (e) {
+            console.error("Lỗi giải mã API key.", e);
+            return "";
+        }
+    }
+
+    // =================================================================
+    // CHỨC NĂNG CỐT LÕI
+    // =================================================================
+    function debounce(func, delay) {
+      let timeoutId;
+      return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func(...args), delay);
+      };
+    }
+    function formatTime(seconds) {
+        if (isNaN(seconds)) return '00:00';
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+        setTimeout(() => {
+            errorMessage.style.display = 'none';
+        }, 4000);
+    }
+    function parseSRT(data) {
+        try {
+            let normalizedData = data.replace(/\uFEFF/g, '').replace(/\r\n|\r|\n/g, '\n').trim();
+            const blocks = normalizedData.split(/\n\n+/).filter(block => block.trim());
+            if (!blocks.length) throw new Error('File SRT trống hoặc không chứa khối hợp lệ.');
+            const parsedSubtitles = [];
+            blocks.forEach((block) => {
+                const lines = block.split('\n').filter(line => line.trim());
+                if (lines.length < 2) return;
+                let timeLineIndex = lines.findIndex(line => line.includes(' --> '));
+                if (timeLineIndex === -1) return;
+                const timeLine = lines[timeLineIndex];
+                const contentLines = lines.slice(timeLineIndex + 1).filter(line => line.trim());
+                if (!contentLines.length) return;
+                const [start, end] = timeLine.split(' --> ').map(t => {
+                    const timeStr = t.replace(',', '.').trim();
+                    const parts = timeStr.split(':');
+                    const h = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10);
+                    const s = parseFloat(parts[2]);
+                    if (isNaN(h) || isNaN(m) || isNaN(s)) return NaN;
+                    return h * 3600 + m * 60 + s;
                 });
-                
-                galleryView.appendChild(videoItem);
+                if (isNaN(start) || isNaN(end) || start >= end) return;
+                parsedSubtitles.push({ startTime: start, endTime: end, contentLines });
             });
-
+            if (!parsedSubtitles.length) throw new Error('Không tìm thấy khối phụ đề hợp lệ nào.');
+            return parsedSubtitles;
         } catch (error) {
-            galleryView.innerHTML = `<p class="text-red-500 text-center">${error.message}</p>`;
-            console.error(error);
+            showError(`Lỗi phân tích file SRT: ${error.message}`);
+            return [];
         }
     }
-
-    // Hàm để tải video và phụ đề vào trình phát
-    async function loadPlayer(videoUrl, subtitleUrl) {
-        try {
-            // Reset trạng thái cũ
-            video.pause();
-            video.src = '';
-            subtitles = [];
-            subtitleDisplay.value = '';
-            subtitlesDiv.innerHTML = '';
-            
-            // Tải video mới
-            video.src = videoUrl;
-            video.load();
-            
-            // Tải phụ đề mới từ URL
-            const subResponse = await fetch(subtitleUrl);
-            if (!subResponse.ok) {
-                throw new Error('Không thể tải file phụ đề.');
-            }
-            const srtContent = await subResponse.text();
-            subtitles = parseSRT(srtContent);
-            
-            showError("Đã tải video và phụ đề. Nhấn Play để bắt đầu!");
-            
-        } catch (error) {
-            showError(`Lỗi khi tải dữ liệu: ${error.message}`);
-            console.error(error);
+    const updateSubtitles = debounce(() => {
+        if (!subtitleEnabled || !isSubtitlesLoaded || video.paused) {
+            return;
+        }
+        const currentTime = video.currentTime;
+        const currentSubtitle = subtitles.find(sub => sub.startTime <= currentTime && currentTime <= sub.endTime);
+        const newSubtitleText = currentSubtitle ? currentSubtitle.contentLines.join('<br>') : '';
+        if (subtitlesDiv.innerHTML !== newSubtitleText) {
+            subtitlesDiv.innerHTML = newSubtitleText;
+            makeWordsSelectable();
+        }
+        currentSentence = currentSubtitle ? currentSubtitle.contentLines.join(' ') : '';
+        const plainText = currentSubtitle ? stripHTML(currentSubtitle.contentLines.join('\n')) : '';
+        if (subtitleDisplay.value !== plainText) {
+            subtitleDisplay.value = plainText;
+        }
+    }, debounceDelay);
+    function makeWordsSelectable() {
+        const subtitleText = subtitlesDiv.innerHTML;
+        if (subtitleText) {
+            subtitlesDiv.innerHTML = subtitleText.split('<br>').map(line =>
+                line.split(' ').map(word => `<span class="subtitle">${word}</span>`).join(' ')
+            ).join('<br>');
         }
     }
+    function stripHTML(text) {
+        const div = document.createElement('div');
+        div.innerHTML = text;
+        return div.textContent || div.innerText || '';
+    }
 
-    // Sự kiện cho nút "Quay lại danh sách"
-    backToGalleryBtn.addEventListener('click', () => {
-        video.pause();
-        video.src = ''; // Dừng tải video
-        galleryView.classList.remove('hidden');
-        playerView.classList.add('hidden');
+    subtitleDisplay.addEventListener('keydown', (e) => {
+        if (!e.ctrlKey && !e.metaKey && e.key.length === 1) {
+            e.preventDefault();
+        }
     });
 
-    // Bắt đầu chạy ứng dụng bằng cách tải thư viện
-    initializeGallery();
+    // =================================================================
+    // XỬ LÝ SỰ KIỆN
+    // =================================================================
+    function hideOverlayIfReady() {
+        if (isVideoLoaded && isSubtitlesLoaded) {
+            inputOverlay.style.display = 'none';
+            showError("Đã tải xong! Nhấn nút play để bắt đầu video với âm thanh.");
+        }
+    }
+    videoUrlInput.addEventListener('change', () => {
+        const url = videoUrlInput.value.trim();
+        if (url) {
+            try {
+                video.src = url;
+                video.load();
+                isVideoLoaded = true;
+                localStorage.setItem('videoUrl', url);
+                localStorage.removeItem('videoFileName');
+                hideOverlayIfReady();
+            } catch (error) {
+                showError(`Không thể tải video từ URL: ${error.message}`);
+                isVideoLoaded = false;
+            }
+        }
+    });
+    videoUpload.addEventListener('change', (e) => {
+        const videoFile = e.target.files[0];
+        if (videoFile) {
+            try {
+                const fileUrl = URL.createObjectURL(videoFile);
+                video.src = fileUrl;
+                video.load();
+                isVideoLoaded = true;
+                localStorage.setItem('videoFileName', videoFile.name);
+                localStorage.removeItem('videoUrl');
+                hideOverlayIfReady();
+            } catch (error) {
+                showError(`Không thể tải file video: ${error.message}`);
+                isVideoLoaded = false;
+            }
+        }
+    });
+    subtitleUpload.addEventListener('change', (e) => {
+        const subtitleFile = e.target.files[0];
+        if (!subtitleFile) return;
+        if (!subtitleFile.name.toLowerCase().endsWith('.srt')) {
+            showError('Vui lòng tải file .srt hợp lệ.');
+            return;
+        }
+        const fileReader = new FileReader();
+        fileReader.onload = (event) => {
+            const subtitleText = event.target.result;
+            subtitles = parseSRT(subtitleText);
+            isSubtitlesLoaded = subtitles.length > 0;
+            if (isSubtitlesLoaded) {
+                localStorage.setItem('subtitleContent', subtitleText);
+                subtitlesDiv.innerHTML = '';
+                subtitleDisplay.value = '';
+                hideOverlayIfReady();
+            }
+        };
+        fileReader.onerror = () => showError('Không thể đọc file SRT.');
+        fileReader.readAsText(subtitleFile, 'UTF-8');
+    });
+    rewindBtn.addEventListener('click', () => {
+        const seconds = parseFloat(seekSecondsInput.value) || 5;
+        video.currentTime = Math.max(0, video.currentTime - seconds);
+    });
+    forwardBtn.addEventListener('click', () => {
+        const seconds = parseFloat(seekSecondsInput.value) || 5;
+        video.currentTime = Math.min(video.duration || Infinity, video.currentTime + seconds);
+    });
+    video.addEventListener('timeupdate', updateSubtitles);
+    video.addEventListener('loadedmetadata', () => {
+        loopEnd = video.duration;
+        loopEndElement.textContent = formatTime(loopEnd);
+        updateLoopMarkers();
+    });
 
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            videoContainer.requestFullscreen().catch(err => {
+                alert(`Lỗi khi vào chế độ toàn màn hình: ${err.message} (${err.name})`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) {
+            fullscreenBtn.textContent = 'Thoát';
+        } else {
+            fullscreenBtn.textContent = 'Toàn màn hình';
+        }
+    });
 
     // =================================================================
-    // LOGIC CỦA TRÌNH PHÁT (Phần lớn giữ nguyên, chỉ sửa đổi nhỏ)
+    // CHỨC NĂNG LẶP ĐOẠN
     // =================================================================
-    
-    // Các hàm tiện ích
-    function debounce(func,delay){let t;return(...e)=>{clearTimeout(t),t=setTimeout((()=>func(...e)),delay)}}
-    function formatTime(e){if(isNaN(e))return"00:00";const t=Math.floor(e/60),o=Math.floor(e%60);return`${t.toString().padStart(2,"0")}:${o.toString().padStart(2,"0")}`}
-    function showError(e){errorMessage.textContent=e,errorMessage.style.display="block",setTimeout((()=>{errorMessage.style.display="none"}),4e3)}
-    function parseSRT(e){try{let t=e.replace(/\uFEFF/g,"").replace(/\r\n|\r|\n/g,"\n").trim().split(/\n\n+/).filter((e=>e.trim()));if(!t.length)throw new Error("File SRT trống hoặc không chứa khối hợp lệ.");const o=[];return t.forEach((e=>{const t=e.split("\n").filter((e=>e.trim()));if(t.length<2)return;let r=t.findIndex((e=>e.includes(" --> ")));if(-1===r)return;const n=t[r],i=t.slice(r+1).filter((e=>e.trim()));if(!i.length)return;const[s,a]=n.split(" --> ").map((e=>{const t=e.replace(",",".").trim().split(":"),o=parseInt(t[0],10),r=parseInt(t[1],10),n=parseFloat(t[2]);return isNaN(o)||isNaN(r)||isNaN(n)?NaN:3600*o+60*r+n}));(isNaN(s)||isNaN(a)||s>=a)||o.push({startTime:s,endTime:a,contentLines:i})})),o.length?o:void 0}catch(e){return showError(`Lỗi phân tích file SRT: ${e.message}`),[]}}
-    const updateSubtitles=debounce((()=>{if(subtitleEnabled&&subtitles.length>0&&!video.paused){const e=video.currentTime,t=subtitles.find((t=>t.startTime<=e&&e<=t.endTime)),o=t?t.contentLines.join("<br>"):"";subtitlesDiv.innerHTML!==o&&(subtitlesDiv.innerHTML=o,makeWordsSelectable()),currentSentence=t?t.contentLines.join(" "):"";const r=t?stripHTML(t.contentLines.join("\n")):"";subtitleDisplay.value!==r&&(subtitleDisplay.value=r)}}),100);
-    function makeWordsSelectable(){const e=subtitlesDiv.innerHTML;e&&(subtitlesDiv.innerHTML=e.split("<br>").map((e=>e.split(" ").map((e=>`<span class="subtitle">${e}</span>`)).join(" "))).join("<br>"))}
-    function stripHTML(e){const t=document.createElement("div");return t.innerHTML=e,t.textContent||t.innerText||""}
-    subtitleDisplay.addEventListener("keydown",(e=>{e.ctrlKey||e.metaKey||1!==e.key.length||e.preventDefault()}));
+    function updateLoopList() {
+        loopListElement.innerHTML = "";
+        loops.forEach((loop, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${index + 1}. ${formatTime(loop.start)} → ${formatTime(loop.end)}</span> <span class="delete-loop" data-index="${index}">Xóa</span>`;
+            li.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-loop')) {
+                    loops.splice(index, 1);
+                    updateLoopList();
+                    return;
+                }
+                video.currentTime = loop.start;
+                video.play();
+                if (isLooping) {
+                    loopStart = loop.start;
+                    loopEnd = loop.end;
+                    loopStartElement.textContent = formatTime(loopStart);
+                    loopEndElement.textContent = formatTime(loopEnd);
+                }
+            });
+            loopListElement.appendChild(li);
+        });
+        updateLoopMarkers();
+        localStorage.setItem('loopList', JSON.stringify(loops));
+    }
+    function updateLoopMarkers() {
+        loopMarkersElement.innerHTML = "";
+        if (video.duration) {
+            loops.forEach((loop, index) => {
+                const marker = document.createElement('div');
+                marker.className = 'loop-marker';
+                marker.title = `Lặp ${index + 1}: ${formatTime(loop.start)} - ${formatTime(loop.end)}`;
+                const positionPercent = (loop.start / video.duration) * 100;
+                marker.style.left = `${positionPercent}%`;
+                marker.addEventListener('click', () => {
+                    video.currentTime = loop.start;
+                });
+                loopMarkersElement.appendChild(marker);
+            });
+        }
+    }
+    setLoopStartElement.addEventListener('click', () => {
+        loopStart = video.currentTime;
+        loopStartElement.textContent = formatTime(loopStart);
+    });
+    setLoopEndElement.addEventListener('click', () => {
+        loopEnd = video.currentTime;
+        loopEndElement.textContent = formatTime(loopEnd);
+    });
+    addLoopElement.addEventListener('click', () => {
+        if (loopStart >= loopEnd || loopEnd > video.duration) {
+            showError('Thời gian lặp không hợp lệ.');
+            return;
+        }
+        loops.push({ start: loopStart, end: loopEnd });
+        loops.sort((a, b) => a.start - b.start);
+        updateLoopList();
+    });
+    toggleLoopElement.addEventListener('change', () => {
+        isLooping = toggleLoopElement.checked;
+        toggleLoopElement.nextElementSibling.querySelector('.toggle-text').textContent = isLooping ? 'BẬT' : 'TẮT';
+        localStorage.setItem('loopEnabled', isLooping);
+        if (isLooping && (loopStart === 0 && loopEnd === video.duration)) {
+            if(loops.length > 0) {
+                loopStart = loops[0].start;
+                loopEnd = loops[0].end;
+                loopStartElement.textContent = formatTime(loopStart);
+                loopEndElement.textContent = formatTime(loopEnd);
+            }
+        }
+    });
+    video.addEventListener('timeupdate', () => {
+        if (isLooping && video.currentTime >= loopEnd) {
+            video.currentTime = loopStart;
+            video.play();
+        }
+    });
 
-    // Các sự kiện của trình phát
-    rewindBtn.addEventListener("click",(()=>{const e=parseFloat(seekSecondsInput.value)||5;video.currentTime=Math.max(0,video.currentTime-e)})),forwardBtn.addEventListener("click",(()=>{const e=parseFloat(seekSecondsInput.value)||5;video.currentTime=Math.min(video.duration||1/0,video.currentTime+e)})),video.addEventListener("timeupdate",updateSubtitles),video.addEventListener("loadedmetadata",(()=>{loopEndElement.textContent=formatTime(video.duration),updateLoopMarkers()}));
-    fullscreenBtn.addEventListener("click",(()=>{document.fullscreenElement?document.exitFullscreen():videoContainer.requestFullscreen().catch((e=>{alert(`Lỗi khi vào chế độ toàn màn hình: ${e.message} (${e.name})`)}))})),document.addEventListener("fullscreenchange",(()=>{fullscreenBtn.textContent=document.fullscreenElement?"Thoát":"Toàn màn hình"}));
-    function updateLoopList(){loopListElement.innerHTML="",loops.forEach(((e,t)=>{const o=document.createElement("li");o.innerHTML=`<span>${t+1}. ${formatTime(e.start)} → ${formatTime(e.end)}</span> <span class="delete-loop" data-index="${t}">Xóa</span>`,o.addEventListener("click",(t=>{if(t.target.classList.contains("delete-loop"))return loops.splice(t,1),void updateLoopList();video.currentTime=e.start,video.play(),isLooping&&(loopStart=e.start,loopEnd=e.end,loopStartElement.textContent=formatTime(loopStart),loopEndElement.textContent=formatTime(loopEnd))})),loopListElement.appendChild(o)})),updateLoopMarkers(),localStorage.setItem("loopList",JSON.stringify(loops))}function updateLoopMarkers(){loopMarkersElement.innerHTML="",video.duration&&loops.forEach(((e,t)=>{const o=document.createElement("div");o.className="loop-marker",o.title=`Lặp ${t+1}: ${formatTime(e.start)} - ${formatTime(e.end)}`;const r=e.start/video.duration*100;o.style.left=`${r}%`,o.addEventListener("click",(()=>{video.currentTime=e.start})),loopMarkersElement.appendChild(o)}))}setLoopStartElement.addEventListener("click",(()=>{loopStart=video.currentTime,loopStartElement.textContent=formatTime(loopStart)})),setLoopEndElement.addEventListener("click",(()=>{loopEnd=video.currentTime,loopEndElement.textContent=formatTime(loopEnd)})),addLoopElement.addEventListener("click",(()=>{loopStart>=loopEnd||loopEnd>video.duration?showError("Thời gian lặp không hợp lệ."):(loops.push({start:loopStart,end:loopEnd}),loops.sort(((e,t)=>e.start-t.start)),updateLoopList())})),toggleLoopElement.addEventListener("change",(()=>{isLooping=toggleLoopElement.checked,toggleLoopElement.nextElementSibling.querySelector(".toggle-text").textContent=isLooping?"BẬT":"TẮT",localStorage.setItem("loopEnabled",isLooping),isLooping&&0===loopStart&&loopEnd===video.duration&&loops.length>0&&(loopStart=loops[0].start,loopEnd=loops[0].end,loopStartElement.textContent=formatTime(loopStart),loopEndElement.textContent=formatTime(loopEnd))})),video.addEventListener("timeupdate",(()=>{isLooping&&video.currentTime>=loopEnd&&(video.currentTime=loopStart,video.play())}));
-    subtitlesDiv.addEventListener("mousedown",(e=>{if(0!==e.button)return;const t=e.target.closest(".subtitle");t&&(e.preventDefault(),video.pause(),translateWord(t.textContent))}));function handleSelectionAndTranslate(){setTimeout((()=>{const e=subtitleDisplay.value.substring(subtitleDisplay.selectionStart,subtitleDisplay.selectionEnd).trim();e.length>1&&(video.pause(),translateWord(e))}),100)}subtitleDisplay.addEventListener("mouseup",handleSelectionAndTranslate),subtitleDisplay.addEventListener("touchend",handleSelectionAndTranslate),translateTextareaBtn.addEventListener("click",(()=>{subtitleDisplay.value.trim()&&(subtitleDisplay.select(),handleSelectionAndTranslate())}));
-    function closePopup(){translationPopup.style.display="none"}closePopupBtn.addEventListener("click",closePopup),document.addEventListener("click",(e=>{translationPopup.contains(e.target)||e.target.classList.contains("subtitle")||e.target===subtitleDisplay||closePopup()}));let isDragging=!1,offsetX,offsetY;function startDrag(e){isDragging=!0,translationPopup.style.transition="none";const t="touchstart"===e.type?e.touches[0].clientX:e.clientX,o="touchstart"===e.type?e.touches[0].clientY:e.clientY;offsetX=t-translationPopup.offsetLeft,offsetY=o-translationPopup.offsetTop,document.addEventListener("mousemove",onDrag),document.addEventListener("touchmove",onDrag,{passive:!1}),document.addEventListener("mouseup",endDrag),document.addEventListener("touchend",endDrag)}function onDrag(e){if(isDragging){e.preventDefault();const t="touchmove"===e.type?e.touches[0].clientX:e.clientX,o="touchmove"===e.type?e.touches[0].clientY:e.clientY;let r=t-offsetX,n=o-offsetY;const i=document.body;r=Math.max(0,Math.min(r,i.clientWidth-translationPopup.offsetWidth)),n=Math.max(0,Math.min(n,i.clientHeight-translationPopup.offsetHeight)),translationPopup.style.left=`${r}px`,translationPopup.style.top=`${n}px`}}function endDrag(){isDragging=!1,translationPopup.style.transition="",document.removeEventListener("mousemove",onDrag),document.removeEventListener("touchmove",onDrag),document.removeEventListener("mouseup",endDrag),document.removeEventListener("touchend",endDrag)}translationPopup.addEventListener("mousedown",startDrag),translationPopup.addEventListener("touchstart",startDrag);
-    function restorePopupPosition(){const e=localStorage.getItem("popupPosition");e?(({top:e,left:t}=JSON.parse(e)),translationPopup.style.top=`${e}px`,translationPopup.style.left=`${t}px`):(translationPopup.style.left="50%",translationPopup.style.top="50%",translationPopup.style.transform="translate(-50%, -50%)")}async function translateWord(e){if(popupContent.innerHTML="Đang dịch...",translationPopup.style.display="block",restorePopupPosition(),0===encodedApiKeys.length||encodedApiKeys[0].startsWith("DÁN_KEY"))return void(popupContent.innerHTML="<p>Chưa cung cấp API key đã mã hóa.</p>");const t=e.replace(/[^a-zA-Zä-üÄ-Ü\s\-\']/g,"").trim(),o=currentSentence||t,r=`\n        Yêu cầu:\n        **Đầu tiên, loại bỏ các định dạng không thuộc ngôn ngữ của "${t}" và "${o}" (loại bỏ thẻ HTML, ký tự đặc biệt không thuộc tiếng Đức).**\n        **Tiếp theo, phân tích từ/cụm từ "${t}" trong câu "${o}" và trả về bản dịch sang tiếng Việt.**\n\n        Trả về duy nhất cấu trúc JSON theo mẫu sau:\n          {\n            "tugoc": "Từ gốc (Động từ: dạng nguyên thể, kèm tiền tố tách nếu có; Danh từ: dạng số ít kèm mạo từ; giữ nguyên nếu là cụm từ/câu)",\n            "nghia": "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ... (kết hợp loại từ và các nghĩa tiếng Việt, ưu tiên nhiều nghĩa nếu có)"\n          }\n\n        A. Xác định loại từ của "${t}":\n          1. Câu: Nếu "${t}" có chủ ngữ, vị ngữ và dấu câu cuối (., !, ?), hoặc cấu trúc ngữ pháp đầy đủ.\n            - tugoc: "${t}" (giữ nguyên)\n            - nghia: "Câu: <Nghĩa tiếng Việt của câu>"\n          2. Cụm từ: Nếu "${t}" có hai từ trở lên nhưng không phải câu hoàn chỉnh.\n            - tugoc: "${t}" (giữ nguyên)\n            - nghia: "Cụm từ: <Nghĩa tiếng Việt chính xác>"\n          3. Từ đơn: Nếu "${t}" là một từ.\n            - Động từ tách: Kiểm tra "${o}" để tìm tiền tố tách (ab|an|auf|aus|bei|da|ein|fest|her|hin|los|mit|nach|statt|teil|vor|weg|zu|zurück|zusammen) ở cuối câu hoặc trước liên từ (und/oder/aber). Chuyển về nguyên thể và ghép tiền tố (ví dụ: "mach" + "aus" → "ausmachen").\n            - Động từ phản thân: Tìm "sich|mich|dich|eur|uns" (ví dụ: "sich ändern").\n            - Động từ kèm giới từ: Xác định giới từ (ví dụ: "teilnehmen an").\n            - Danh từ: Nếu viết hoa, thêm mạo từ (der|die|das, tham khảo duden.de).\n            - Tính từ/Trạng từ/Đại từ/Giới từ/Liên từ/Thán từ: Dùng dạng gốc.\n            - tugoc: Dạng đúng theo loại từ (ví dụ: "ausmachen", "der Tisch").\n            - nghia: "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ..."\n\n        Lưu ý:\n          - Xác định chính xác loại từ, không cắt xén "${t}".\n          - Chỉ đưa ra nghĩa riêng cho "${t}", không bao gồm nghĩa của từ khác trong "${o}".\n          - Ưu tiên ngữ cảnh "${o}".\n          - Tham khảo dict.cc/leo.org/duden.de.\n          - Trả về JSON thuần hợp lệ trong \`\`\`json\n...\n\`\`\`.\n      `;!function e(t){const o=decodeApiKey(encodedApiKeys[t],secretKey);o?fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${o}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:r}]}]})}).then((o=>{if(!o.ok){if(429===o.status&&t<encodedApiKeys.length-1)return e(t+1);throw new Error(`Lỗi HTTP: ${o.status}`)}return o.json()})).then((e=>{const t=e.candidates[0].content.parts[0].text,o=t.match(/```json\n([\s\S]*?)\n```/);if(!o)throw new Error("Phản hồi API không chứa JSON hợp lệ.");const r=JSON.parse(o[1]);if(!r.tugoc||!r.nghia)throw new Error("Dữ liệu JSON không đầy đủ.");popupContent.innerHTML=`\n                    <p><strong>Từ gốc:</strong> ${r.tugoc}</p>\n                    <p><strong>Nghĩa:</strong> ${r.nghia}</p>\n                `})).catch((o=>{t<encodedApiKeys.length-1?e(t+1):popupContent.innerHTML=`<p>Lỗi khi dịch: ${o.message}</p>`})):popupContent.innerHTML="<p>Lỗi: Không thể giải mã API key.</p>"}(currentApiKeyIndex)}
-    toggleSubtitlesElement.addEventListener("change",(()=>{subtitleEnabled=toggleSubtitlesElement.checked,subtitlesDiv.style.display=subtitleEnabled?"block":"none",subtitleDisplay.style.display=subtitleEnabled?"block":"none",document.querySelector(".subtitle-box").style.display=subtitleEnabled?"block":"none",toggleSubtitlesElement.nextElementSibling.querySelector(".toggle-text").textContent=subtitleEnabled?"BẬT":"TẮT",localStorage.setItem("subtitleEnabled",subtitleEnabled)}));
+    // =================================================================
+    // CHỨC NĂNG DỊCH THUẬT VÀ POPUP
+    // =================================================================
+    subtitlesDiv.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const subtitleTarget = e.target.closest('.subtitle');
+        if (subtitleTarget) {
+            e.preventDefault();
+            video.pause();
+            translateWord(subtitleTarget.textContent);
+        }
+    });
+
+    function handleSelectionAndTranslate() {
+        setTimeout(() => {
+            const selectedText = subtitleDisplay.value.substring(subtitleDisplay.selectionStart, subtitleDisplay.selectionEnd).trim();
+            if (selectedText.length > 1) {
+                video.pause();
+                translateWord(selectedText);
+            }
+        }, 100);
+    }
+    subtitleDisplay.addEventListener('mouseup', handleSelectionAndTranslate);
+    subtitleDisplay.addEventListener('touchend', handleSelectionAndTranslate);
+
+    // --- SỬA LỖI & CẢI TIẾN LOGIC NÚT DỊCH ---
+    translateTextareaBtn.addEventListener('click', () => {
+        if (subtitleDisplay.value.trim()) {
+            // Bước 1: Tự động bôi đen toàn bộ text
+            subtitleDisplay.select();
+            
+            // Bước 2: Gọi hàm xử lý dịch như khi người dùng tự bôi đen.
+            // Điều này đảm bảo logic được thống nhất và tránh lặp code.
+            handleSelectionAndTranslate();
+        }
+    });
+
+
+    function closePopup() {
+        translationPopup.style.display = 'none';
+    }
+    closePopupBtn.addEventListener('click', closePopup);
+    document.addEventListener('click', (e) => {
+      if (!translationPopup.contains(e.target) && !e.target.classList.contains('subtitle') && e.target !== subtitleDisplay) {
+        closePopup();
+      }
+    });
+    let isDragging = false, offsetX, offsetY;
+    function startDrag(e) {
+        isDragging = true;
+        translationPopup.style.transition = 'none';
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+        offsetX = clientX - translationPopup.offsetLeft;
+        offsetY = clientY - translationPopup.offsetTop;
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('touchmove', onDrag, { passive: false });
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
+    }
+    function onDrag(e) {
+        if (isDragging) {
+            e.preventDefault();
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+            let newLeft = clientX - offsetX;
+            let newTop = clientY - offsetY;
+            const container = document.body;
+            newLeft = Math.max(0, Math.min(newLeft, container.clientWidth - translationPopup.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, container.clientHeight - translationPopup.offsetHeight));
+            translationPopup.style.left = `${newLeft}px`;
+            translationPopup.style.top = `${newTop}px`;
+        }
+    }
+    function endDrag() {
+        isDragging = false;
+        translationPopup.style.transition = '';
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('touchmove', onDrag);
+        document.removeEventListener('mouseup', endDrag);
+        document.removeEventListener('touchend', endDrag);
+        localStorage.setItem('popupPosition', JSON.stringify({ top: translationPopup.offsetTop, left: translationPopup.offsetLeft }));
+    }
+    translationPopup.addEventListener('mousedown', startDrag);
+    translationPopup.addEventListener('touchstart', startDrag);
+    function restorePopupPosition() {
+        const savedPosition = localStorage.getItem('popupPosition');
+        if (savedPosition) {
+            const { top, left } = JSON.parse(savedPosition);
+            translationPopup.style.top = `${top}px`;
+            translationPopup.style.left = `${left}px`;
+        } else {
+            translationPopup.style.left = '50%';
+            translationPopup.style.top = '50%';
+            translationPopup.style.transform = 'translate(-50%, -50%)';
+        }
+    }
+    async function translateWord(word) {
+        popupContent.innerHTML = 'Đang dịch...';
+        translationPopup.style.display = 'block';
+        restorePopupPosition();
+
+        if (encodedApiKeys.length === 0 || encodedApiKeys[0].startsWith('DÁN_KEY')) {
+            popupContent.innerHTML = '<p>Chưa cung cấp API key đã mã hóa.</p>';
+            return;
+        }
+
+        const cleanedWord = word.replace(/[^a-zA-Zä-üÄ-Ü\s\-\']/g, '').trim();
+        const sentence = currentSentence || cleanedWord;
+        const translationPrompt = `
+        Yêu cầu:
+        **Đầu tiên, loại bỏ các định dạng không thuộc ngôn ngữ của "${cleanedWord}" và "${sentence}" (loại bỏ thẻ HTML, ký tự đặc biệt không thuộc tiếng Đức).**
+        **Tiếp theo, phân tích từ/cụm từ "${cleanedWord}" trong câu "${sentence}" và trả về bản dịch sang tiếng Việt.**
+
+        Trả về duy nhất cấu trúc JSON theo mẫu sau:
+          {
+            "tugoc": "Từ gốc (Động từ: dạng nguyên thể, kèm tiền tố tách nếu có; Danh từ: dạng số ít kèm mạo từ; giữ nguyên nếu là cụm từ/câu)",
+            "nghia": "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ... (kết hợp loại từ và các nghĩa tiếng Việt, ưu tiên nhiều nghĩa nếu có)"
+          }
+
+        A. Xác định loại từ của "${cleanedWord}":
+          1. Câu: Nếu "${cleanedWord}" có chủ ngữ, vị ngữ và dấu câu cuối (., !, ?), hoặc cấu trúc ngữ pháp đầy đủ.
+            - tugoc: "${cleanedWord}" (giữ nguyên)
+            - nghia: "Câu: <Nghĩa tiếng Việt của câu>"
+          2. Cụm từ: Nếu "${cleanedWord}" có hai từ trở lên nhưng không phải câu hoàn chỉnh.
+            - tugoc: "${cleanedWord}" (giữ nguyên)
+            - nghia: "Cụm từ: <Nghĩa tiếng Việt chính xác>"
+          3. Từ đơn: Nếu "${cleanedWord}" là một từ.
+            - Động từ tách: Kiểm tra "${sentence}" để tìm tiền tố tách (ab|an|auf|aus|bei|da|ein|fest|her|hin|los|mit|nach|statt|teil|vor|weg|zu|zurück|zusammen) ở cuối câu hoặc trước liên từ (und/oder/aber). Chuyển về nguyên thể và ghép tiền tố (ví dụ: "mach" + "aus" → "ausmachen").
+            - Động từ phản thân: Tìm "sich|mich|dich|eur|uns" (ví dụ: "sich ändern").
+            - Động từ kèm giới từ: Xác định giới từ (ví dụ: "teilnehmen an").
+            - Danh từ: Nếu viết hoa, thêm mạo từ (der|die|das, tham khảo duden.de).
+            - Tính từ/Trạng từ/Đại từ/Giới từ/Liên từ/Thán từ: Dùng dạng gốc.
+            - tugoc: Dạng đúng theo loại từ (ví dụ: "ausmachen", "der Tisch").
+            - nghia: "<Loại từ>: <Nghĩa 1>, <Nghĩa 2>, ..."
+
+        Lưu ý:
+          - Xác định chính xác loại từ, không cắt xén "${cleanedWord}".
+          - Chỉ đưa ra nghĩa riêng cho "${cleanedWord}", không bao gồm nghĩa của từ khác trong "${sentence}".
+          - Ưu tiên ngữ cảnh "${sentence}".
+          - Tham khảo dict.cc/leo.org/duden.de.
+          - Trả về JSON thuần hợp lệ trong \`\`\`json\n...\n\`\`\`.
+      `;
+
+        async function tryTranslateWithKey(keyIndex) {
+            const apiKey = decodeApiKey(encodedApiKeys[keyIndex], secretKey);
+            if (!apiKey) {
+                popupContent.innerHTML = `<p>Lỗi: Không thể giải mã API key.</p>`;
+                return;
+            }
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: translationPrompt }] }] })
+                });
+                if (!response.ok) {
+                    if (response.status === 429 && keyIndex < encodedApiKeys.length - 1) {
+                        return tryTranslateWithKey(keyIndex + 1);
+                    }
+                    throw new Error(`Lỗi HTTP: ${response.status}`);
+                }
+                const data = await response.json();
+                const content = data.candidates[0].content.parts[0].text;
+                const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
+                if (!jsonMatch) throw new Error('Phản hồi API không chứa JSON hợp lệ.');
+                const jsonData = JSON.parse(jsonMatch[1]);
+                if (!jsonData.tugoc || !jsonData.nghia) throw new Error('Dữ liệu JSON không đầy đủ.');
+                popupContent.innerHTML = `
+                    <p><strong>Từ gốc:</strong> ${jsonData.tugoc}</p>
+                    <p><strong>Nghĩa:</strong> ${jsonData.nghia}</p>
+                `;
+            } catch (error) {
+                if (keyIndex < encodedApiKeys.length - 1) {
+                    return tryTranslateWithKey(keyIndex + 1);
+                } else {
+                    popupContent.innerHTML = `<p>Lỗi khi dịch: ${error.message}</p>`;
+                }
+            }
+        }
+        tryTranslateWithKey(currentApiKeyIndex);
+    }
+    toggleSubtitlesElement.addEventListener('change', () => {
+        subtitleEnabled = toggleSubtitlesElement.checked;
+        subtitlesDiv.style.display = subtitleEnabled ? 'block' : 'none';
+        subtitleDisplay.style.display = subtitleEnabled ? 'block' : 'none';
+        document.querySelector('.subtitle-box').style.display = subtitleEnabled ? 'block' : 'none';
+        toggleSubtitlesElement.nextElementSibling.querySelector('.toggle-text').textContent = subtitleEnabled ? 'BẬT' : 'TẮT';
+        localStorage.setItem('subtitleEnabled', subtitleEnabled);
+    });
+    clearDataElement.addEventListener('click', () => {
+        if (confirm('Bạn có chắc muốn xóa tất cả dữ liệu video, phụ đề và các đoạn lặp đã lưu?')) {
+            localStorage.clear();
+            location.reload();
+        }
+    });
+    function loadFromLocalStorage() {
+        const videoUrl = localStorage.getItem('videoUrl');
+        const videoFileName = localStorage.getItem('videoFileName');
+        const srtContent = localStorage.getItem('subtitleContent');
+        const loopList = localStorage.getItem('loopList');
+        const loopEnabled = localStorage.getItem('loopEnabled');
+        const subtitleEnabledStored = localStorage.getItem('subtitleEnabled');
+        if (videoUrl) { video.src = videoUrl; isVideoLoaded = true; }
+        else if (videoFileName) { showError(`Vui lòng tải lại file video: ${videoFileName}`); }
+        if (srtContent) { subtitles = parseSRT(srtContent); isSubtitlesLoaded = subtitles.length > 0; }
+        hideOverlayIfReady();
+        if (loopList) { loops = JSON.parse(loopList); updateLoopList(); }
+        isLooping = loopEnabled !== null ? JSON.parse(loopEnabled) : false;
+        toggleLoopElement.checked = isLooping;
+        toggleLoopElement.nextElementSibling.querySelector('.toggle-text').textContent = isLooping ? 'BẬT' : 'TẮT';
+        subtitleEnabled = subtitleEnabledStored !== null ? JSON.parse(subtitleEnabledStored) : true;
+        toggleSubtitlesElement.checked = subtitleEnabled;
+        toggleSubtitlesElement.nextElementSibling.querySelector('.toggle-text').textContent = subtitleEnabled ? 'BẬT' : 'TẮT';
+        subtitlesDiv.style.display = subtitleEnabled ? 'block' : 'none';
+        subtitleDisplay.style.display = subtitleEnabled ? 'block' : 'none';
+        document.querySelector('.subtitle-box').style.display = subtitleEnabled ? 'block' : 'none';
+    }
+    loadFromLocalStorage();
 });
