@@ -3,7 +3,7 @@
     "id": "video1",
     "title": "Luyện Nghe Cấp Tốc A2-B1",
     "videoUrl": "https://www.googleapis.com/drive/v3/files/1teS-EEbTnQOXVZsZwlsjcbxreaMhX--m?alt=media&key=AIzaSyCiOqUt0rGhPy60_wIRA8mGOoqLbLDkBSg",
-    "subtitleUrl": "https://github.com/asavin12/film/sub/1.srt",
+    "subtitleUrl": "sub/1.srt",
     "thumbnailUrl": "thumbnails/1.jpg"
   }
 ]
